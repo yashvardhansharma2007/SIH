@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root{
     --bg: #081014;
@@ -106,7 +107,6 @@
 
   canvas#trendChart{ max-height: 220px; margin-top: 10px; }
 
-  /* Priority & Assessment Styles */
   .checkbox-grid { 
     display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
     gap: 12px; margin-bottom: 20px; padding: 10px; 
@@ -116,6 +116,28 @@
   .chk-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text); }
   .chk-label input { accent-color: var(--cyan); cursor: pointer; width:15px; height:15px; }
   
+  .budget-controls {
+    display: flex; gap: 12px; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; background: rgba(255,255,255,0.02); padding: 12px;
+    border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap;
+  }
+  .budget-input-group { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 260px; }
+  .budget-input-group label { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .budget-input-group input {
+    background: #0C1A20; border: 1px solid rgba(148,197,197,0.25); border-radius: 6px;
+    color: var(--cyan); font-family: var(--mono); font-size: 14px; font-weight: 600;
+    padding: 8px 12px; outline: none; width: 100%; max-width: 200px;
+  }
+  .budget-input-group input:focus { border-color: var(--cyan); }
+
+  .btn-pdf {
+    background: linear-gradient(135deg, var(--cyan) 0%, #30A89B 100%);
+    color: #081014; font-family: var(--sans); font-weight: 600; font-size: 12px;
+    border: none; border-radius: 6px; padding: 9px 16px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: opacity 0.2s;
+  }
+  .btn-pdf:hover { opacity: 0.9; }
+
   .priority-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;}
   .priority-item { 
     display: flex; justify-content: space-between; align-items: center; 
@@ -125,6 +147,12 @@
   .priority-rank { font-weight: 700; font-size: 18px; width: 35px; color: var(--muted); font-family: var(--mono); }
   .priority-details { flex: 1; display: flex; flex-direction: column; gap: 4px; }
   
+  .budget-badge {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--cyan); text-align: right;
+  }
+  .budget-share { font-size: 11px; color: var(--muted); }
+
   .priority-result{
     margin-top: 14px; padding: 16px; border-radius: 8px; font-size: 14px; line-height:1.6;
     background: rgba(232,163,61,0.08); border: 1px solid rgba(232,163,61,0.3);
@@ -132,6 +160,20 @@
   .priority-result strong{ color: var(--amber); font-weight: 600; font-size: 15px; display:block; margin-bottom:4px; }
 
   footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; padding-bottom: 30px; }
+
+  .pdf-template {
+    display: none;
+    background: #ffffff;
+    color: #111111;
+    padding: 30px;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .pdf-template h1 { color: #0E1B21; font-size: 22px; border-bottom: 2px solid #4DD9C9; padding-bottom: 8px; margin-bottom: 15px; }
+  .pdf-template table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  .pdf-template th, .pdf-template td { border: 1px solid #dddddd; padding: 10px; text-align: left; font-size: 12px; }
+  .pdf-template th { background-color: #f2f2f2; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -170,13 +212,24 @@
 
 <main style="grid-template-columns: 1fr; margin-top:18px;">
   <div class="panel">
-    <div class="panel-head"><span>Regional Resource Allocation Assessor</span><span>Multi-Region Assessment</span></div>
+    <div class="panel-head"><span>AI Prediction Decision Support &amp; Resource Allocation</span><span>Forecast-Weighted Model</span></div>
     <div class="detail">
       <div style="margin-bottom:12px; font-size:13px; color:var(--muted);">
-        Select regions within a specific state or cluster to evaluate where emergency funds and resources should be prioritized.
+        Select regions to calculate emergency relief split based on AI predicted index values, forecast drop severity, and vulnerability score.
       </div>
       
       <div id="multiSelectContainer" class="checkbox-grid"></div>
+
+      <div class="budget-controls">
+        <div class="budget-input-group">
+          <label for="totalBudget">Total Relief Budget (₹):</label>
+          <input type="number" id="totalBudget" value="5000000" step="100000" oninput="evaluatePriority()" />
+        </div>
+        <button class="btn-pdf" onclick="exportPDFReport()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 18 15 15"></polyline></svg>
+          Export 1-Click PDF Report
+        </button>
+      </div>
       
       <div id="priorityListContainer" class="priority-list"></div>
       <div id="priorityVerdict" class="priority-result" style="display:none;"></div>
@@ -184,10 +237,36 @@
   </div>
 </main>
 
+<div id="pdfExportContainer" class="pdf-template">
+  <h1>TerraWatch — AI Prediction Relief Allocation Report</h1>
+  <p style="font-size: 11px; color: #555;">Generated on: <span id="pdfDate"></span></p>
+  <div style="margin-top: 15px;">
+    <strong>Total Allocated Relief Budget:</strong> ₹<span id="pdfTotalBudget"></span>
+  </div>
+  
+  <table id="pdfTable">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Region Name</th>
+        <th>AI Pred. Value</th>
+        <th>Forecast Drop</th>
+        <th>Vuln. Score</th>
+        <th>Budget Allocation</th>
+        <th>Share (%)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div style="margin-top:20px; padding:12px; background:#f9f9f9; border-left:3px solid #E8A33D; font-size:12px;" id="pdfVerdictText">
+  </div>
+</div>
+
 <footer>TerraWatch Platform — Earth Observation analytics built for accurate risk monitoring.</footer>
 
 <script>
-  const API_BASE = "http://localhost:8000"; 
+  const API_BASE = "http://127.0.0.1:8000"; 
   let map, markers = {}, chart;
   let regionsCache = [];
 
@@ -220,7 +299,7 @@
       document.getElementById('regionList').innerHTML =
         `<div style="padding:16px;font-family:var(--mono);font-size:12px;color:var(--muted)">
           Backend not reachable at ${API_BASE}.<br><br>
-          Run: <br><code>cd backend && uvicorn main:app --reload --port 8000</code>
+          Run: <br><code>python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000</code>
         </div>`;
     }
   }
@@ -345,9 +424,28 @@
     `).join('');
   }
 
+  let currentEvaluation = [];
+
+  function calculatePredictionScore(region){
+    const predVal = region.prediction ? parseFloat(region.prediction.predicted_value) : parseFloat(region.current_value);
+    const pctChange = region.prediction ? parseFloat(region.prediction.pct_change) : (region.pct_change || 0);
+
+    // AI Prediction Vulnerability Score Formula
+    const indexDeficit = Math.max(0.01, 1.0 - predVal);
+    const dropPenalty = pctChange < 0 ? Math.abs(pctChange) * 2.0 : 0;
+    
+    const vulnerabilityScore = (indexDeficit * 50) + dropPenalty;
+    return {
+      predVal: predVal.toFixed(2),
+      pctChange: pctChange.toFixed(1),
+      score: parseFloat(vulnerabilityScore.toFixed(2))
+    };
+  }
+
   function evaluatePriority(){
     const checkedBoxes = Array.from(document.querySelectorAll('#multiSelectContainer input:checked'));
     const checkedIds = checkedBoxes.map(cb => cb.value);
+    const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
     
     const listContainer = document.getElementById('priorityListContainer');
     const verdictBox = document.getElementById('priorityVerdict');
@@ -355,48 +453,106 @@
     if(checkedIds.length === 0){
       listContainer.innerHTML = '';
       verdictBox.style.display = 'none';
+      currentEvaluation = [];
       return;
     }
 
     let selectedRegions = regionsCache.filter(r => checkedIds.includes(r.id));
     
-    const riskScores = { "High": 4, "Medium": 3, "Low": 2, "Recovering": 1 };
-    
-    selectedRegions.sort((a, b) => {
-      const scoreA = riskScores[a.risk_tier] || 0;
-      const scoreB = riskScores[b.risk_tier] || 0;
-      return scoreB - scoreA;
+    let evaluatedList = selectedRegions.map(r => {
+      const predData = calculatePredictionScore(r);
+      return {
+        ...r,
+        predVal: predData.predVal,
+        pctChange: predData.pctChange,
+        vulnerabilityScore: predData.score
+      };
     });
 
-    listContainer.innerHTML = selectedRegions.map((r, index) => `
+    evaluatedList.sort((a, b) => b.vulnerabilityScore - a.vulnerabilityScore);
+
+    const totalVulnerabilityScore = evaluatedList.reduce((acc, r) => acc + r.vulnerabilityScore, 0);
+
+    currentEvaluation = evaluatedList.map(r => {
+      const sharePct = (r.vulnerabilityScore / totalVulnerabilityScore) * 100;
+      const allocatedAmount = (r.vulnerabilityScore / totalVulnerabilityScore) * totalBudget;
+      return { ...r, sharePct, allocatedAmount };
+    });
+
+    listContainer.innerHTML = currentEvaluation.map((r, index) => `
       <div class="priority-item" style="border-left: 4px solid ${riskColor(r.risk_tier)}">
         <div class="priority-rank">#${index + 1}</div>
         <div class="priority-details">
           <div style="font-size:15px; font-weight:600;">${r.name}</div>
           <div style="font-size:12px; font-family:var(--mono); color:var(--muted);">
-            Index: ${r.index.toUpperCase()} &nbsp;|&nbsp; Current Status: ${r.current_value}
+            Index: ${r.index.toUpperCase()} &nbsp;|&nbsp; AI Forecast: <span style="color:var(--text); font-weight:600;">${r.predVal}</span> 
+            (${r.pctChange < 0 ? '' : '+'}${r.pctChange}%) &nbsp;|&nbsp; AI Vuln Score: <span style="color:var(--cyan);">${r.vulnerabilityScore}</span>
           </div>
+        </div>
+        <div style="text-align:right; margin-right:15px;">
+          <div class="budget-badge">₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</div>
+          <div class="budget-share">${r.sharePct.toFixed(1)}% forecast weight</div>
         </div>
         <span class="badge badge-${r.risk_tier}">${r.risk_tier}</span>
       </div>
     `).join('');
 
     verdictBox.style.display = 'block';
-    if(selectedRegions.length === 1){
-      verdictBox.innerHTML = `Select at least one more region in the cluster to generate a comparative priority verdict.`;
+    if(currentEvaluation.length === 1){
+      verdictBox.innerHTML = `Select at least one more region to evaluate comparative AI prediction budget distribution.`;
     } else {
-      const topPriority = selectedRegions[0];
-      const secondPriority = selectedRegions[1];
-      
-      let verdictHTML = `<strong>Priority 1 Allocation: ${topPriority.name}</strong>`;
-      
-      if(riskScores[topPriority.risk_tier] === riskScores[secondPriority.risk_tier]) {
-        verdictHTML += `Both <strong>${topPriority.name}</strong> and <strong>${secondPriority.name}</strong> currently face identical ${topPriority.risk_tier} risk levels. Resources should be distributed evenly between these top zones or evaluated based on localized population density.`;
-      } else {
-        verdictHTML += `Due to its severe ${topPriority.risk_tier.toLowerCase()} risk profile, <strong>${topPriority.name}</strong> requires the most urgent resource deployment. <strong>${secondPriority.name}</strong> should be scheduled for secondary relief scaling.`;
-      }
-      
+      const top = currentEvaluation[0];
+      const second = currentEvaluation[1];
+      let verdictHTML = `<strong>AI Prediction-Based Allocation Verdict:</strong>`;
+      verdictHTML += `Based on predicted index deficit and drop severity, <strong>${top.name}</strong> has the highest AI Vulnerability Score (<strong>${top.vulnerabilityScore}</strong>), securing <strong>₹${Math.round(top.allocatedAmount).toLocaleString('en-IN')} (${top.sharePct.toFixed(1)}%)</strong>. <strong>${second.name}</strong> follows with a score of ${second.vulnerabilityScore}.`;
       verdictBox.innerHTML = verdictHTML;
+    }
+  }
+
+  async function exportPDFReport(){
+    if(!currentEvaluation || currentEvaluation.length === 0){
+      alert("Pehle niche diye checkboxes se regions select karo!");
+      return;
+    }
+
+    const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
+    document.getElementById('pdfDate').textContent = new Date().toLocaleString();
+    document.getElementById('pdfTotalBudget').textContent = totalBudget.toLocaleString('en-IN');
+    
+    const tbody = document.querySelector('#pdfTable tbody');
+    tbody.innerHTML = currentEvaluation.map((r, idx) => `
+      <tr>
+        <td>#${idx + 1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.predVal}</td>
+        <td>${r.pctChange}%</td>
+        <td>${r.vulnerabilityScore}</td>
+        <td>₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</td>
+        <td>${r.sharePct.toFixed(1)}%</td>
+      </tr>
+    `).join('');
+
+    document.getElementById('pdfVerdictText').innerHTML = document.getElementById('priorityVerdict').innerHTML;
+
+    const element = document.getElementById('pdfExportContainer');
+    element.style.display = 'block';
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    const opt = {
+      margin:       0.4,
+      filename:     `TerraWatch_AIPrediction_Report_${Date.now()}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+    } finally {
+      element.style.display = 'none';
     }
   }
 
