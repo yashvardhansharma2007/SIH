@@ -33,13 +33,6 @@
     padding: 20px;
   }
 
-  .scanline{
-    position: fixed; top:0; left:0; right:0; height:1px;
-    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-    opacity: 0.5; animation: scan 6s linear infinite; z-index: 50; pointer-events:none;
-  }
-  @keyframes scan { 0%{top:0%} 100%{top:100%} }
-
   header{
     display:flex; align-items:baseline; justify-content:space-between;
     max-width:1360px; margin: 0 auto 18px auto; padding-bottom:16px;
@@ -71,7 +64,10 @@
   }
   #map{ height: 480px; width:100%; filter: saturate(0.85) brightness(0.95); }
 
-  .region-list{ padding: 6px; }
+  .region-list{ padding: 6px; max-height: 480px; overflow-y: auto; }
+  .region-list::-webkit-scrollbar, .checkbox-grid::-webkit-scrollbar { width: 6px; }
+  .region-list::-webkit-scrollbar-thumb, .checkbox-grid::-webkit-scrollbar-thumb { background: rgba(148,197,197,0.2); border-radius: 4px; }
+  
   .region-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding: 12px 10px; border-radius:8px; cursor:pointer;
@@ -81,6 +77,7 @@
   .region-row.active{ background: rgba(77,217,201,0.1); border-color: rgba(77,217,201,0.3); }
   .region-name{ font-weight:600; font-size:14px; }
   .region-meta{ font-family: var(--mono); font-size:11px; color: var(--muted); }
+  
   .badge{
     font-family: var(--mono); font-size: 10px; font-weight:600; padding: 4px 8px;
     border-radius: 20px; letter-spacing: 0.5px; text-transform:uppercase; white-space:nowrap;
@@ -109,47 +106,35 @@
 
   canvas#trendChart{ max-height: 220px; margin-top: 10px; }
 
-  .compare-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 6px; }
-  .compare-select{
-    background-color: #0C1A20;
-    color: var(--text);
-    border: 1px solid rgba(148,197,197,0.25);
-    border-radius: 6px;
-    padding: 9px 34px 9px 12px;
-    font-family: var(--sans);
-    font-size: 13px;
-    flex: 1;
-    min-width: 200px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234DD9C9'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5H5.25Z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 16px;
-    cursor: pointer;
-    transition: border-color 0.15s ease;
+  /* Priority & Assessment Styles */
+  .checkbox-grid { 
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+    gap: 12px; margin-bottom: 20px; padding: 10px; 
+    border: 1px solid var(--line); border-radius: 8px; background: rgba(0,0,0,0.1);
+    max-height: 160px; overflow-y: auto;
   }
-  .compare-select:hover{ border-color: rgba(77,217,201,0.5); }
-  .compare-select:focus{ outline: none; border-color: var(--cyan); }
-  .compare-select option{
-    background-color: #0C1A20;
-    color: var(--text);
-    padding: 8px;
+  .chk-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text); }
+  .chk-label input { accent-color: var(--cyan); cursor: pointer; width:15px; height:15px; }
+  
+  .priority-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;}
+  .priority-item { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 14px; background: rgba(0,0,0,0.2); 
+    border: 1px solid var(--line); border-radius: 8px; 
   }
-  .compare-controls .vs{ font-family: var(--mono); color: var(--muted); font-size: 12px; }
-  #compareBtn{
-    background: var(--cyan); color: #06171a; border:none; border-radius:6px; padding: 9px 16px;
-    font-weight:600; font-size: 13px; cursor:pointer; font-family: var(--sans);
+  .priority-rank { font-weight: 700; font-size: 18px; width: 35px; color: var(--muted); font-family: var(--mono); }
+  .priority-details { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  
+  .priority-result{
+    margin-top: 14px; padding: 16px; border-radius: 8px; font-size: 14px; line-height:1.6;
+    background: rgba(232,163,61,0.08); border: 1px solid rgba(232,163,61,0.3);
   }
-  #compareBtn:hover{ opacity:0.9; }
-  canvas#compareChart{ max-height: 260px; margin-top: 14px; }
+  .priority-result strong{ color: var(--amber); font-weight: 600; font-size: 15px; display:block; margin-bottom:4px; }
 
-  footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; }
+  footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; padding-bottom: 30px; }
 </style>
 </head>
 <body>
-<div class="scanline"></div>
 
 <header>
   <div class="brand">
@@ -159,12 +144,12 @@
       <div class="sub">AI-powered Earth Observation Change &amp; Risk Platform</div>
     </div>
   </div>
-  <div class="status">API: <b id="apiStatus">checking…</b><br>4 regions · Sentinel-2 NDVI/NDWI (demo data)</div>
+  <div class="status">API: <b id="apiStatus">checking…</b><br>Sentinel-2 NDVI/NDWI Platform</div>
 </header>
 
 <main>
   <div class="panel">
-    <div class="panel-head"><span>Region map</span><span id="mapHint">click a marker or a row →</span></div>
+    <div class="panel-head"><span>Region map (Click any marker for details)</span><span id="mapHint">interactive map</span></div>
     <div id="map"></div>
   </div>
 
@@ -178,39 +163,36 @@
   <div class="panel">
     <div class="panel-head"><span>Change detection + AI forecast</span><span id="detailIndex"></span></div>
     <div class="detail" id="detail">
-      <div class="idx">Select a region above to see its history and prediction.</div>
+      <div class="idx">Select a region above or click on the map marker to see details, history and predictions.</div>
     </div>
   </div>
 </main>
 
 <main style="grid-template-columns: 1fr; margin-top:18px;">
   <div class="panel">
-    <div class="panel-head"><span>Compare regions</span><span id="compareHint">pick two regions →</span></div>
+    <div class="panel-head"><span>Regional Resource Allocation Assessor</span><span>Multi-Region Assessment</span></div>
     <div class="detail">
-      <div class="compare-controls">
-        <select id="compareRegion1" class="compare-select"></select>
-        <span class="vs">vs</span>
-        <select id="compareRegion2" class="compare-select"></select>
-        <button id="compareBtn" onclick="runCompare()">Compare</button>
+      <div style="margin-bottom:12px; font-size:13px; color:var(--muted);">
+        Select regions within a specific state or cluster to evaluate where emergency funds and resources should be prioritized.
       </div>
-
-      <div class="stat-grid" id="compareStats" style="grid-template-columns: 1fr 1fr;"></div>
-
-      <canvas id="compareChart"></canvas>
+      
+      <div id="multiSelectContainer" class="checkbox-grid"></div>
+      
+      <div id="priorityListContainer" class="priority-list"></div>
+      <div id="priorityVerdict" class="priority-result" style="display:none;"></div>
     </div>
   </div>
 </main>
 
-<footer>TerraWatch demo build — synthetic NDVI/NDWI time series standing in for live Sentinel-2 / Google Earth Engine pulls. Swap the data source in backend/data_gen.py before the real event.</footer>
+<footer>TerraWatch Platform — Earth Observation analytics built for accurate risk monitoring.</footer>
 
 <script>
-  const API_BASE = "http://localhost:8000"; // change if backend is deployed elsewhere
+  const API_BASE = "http://localhost:8000"; 
   let map, markers = {}, chart;
   let regionsCache = [];
-  let activeId = null;
 
   function initMap(){
-    map = L.map('map', { zoomControl: true }).setView([22.5, 82, ], 4.4);
+    map = L.map('map', { zoomControl: true }).setView([22.5, 82], 4.4);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd', maxZoom: 19
@@ -230,7 +212,7 @@
       document.getElementById('apiStatus').style.color = '#6FCF97';
       renderList();
       renderMarkers();
-      populateCompareDropdowns();
+      populateCheckboxes();
       if(regionsCache.length) selectRegion(regionsCache[0].id);
     }catch(e){
       document.getElementById('apiStatus').textContent = 'offline — run the FastAPI backend';
@@ -261,24 +243,31 @@
     regionsCache.forEach(r => {
       const marker = L.circleMarker([r.lat, r.lon], {
         radius: 9, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
-        fillOpacity: 0.6, weight: 2
+        fillOpacity: 0.7, weight: 2
       }).addTo(map);
-      marker.bindTooltip(`${r.name} — ${r.risk_tier} risk`);
-      marker.on('click', () => selectRegion(r.id));
+      marker.bindTooltip(`${r.name} — Click for details`);
+      
+      marker.on('click', () => {
+        selectRegion(r.id);
+      });
+
       markers[r.id] = marker;
     });
   }
 
   async function selectRegion(id){
-    activeId = id;
     document.querySelectorAll('.region-row').forEach(el => el.classList.remove('active'));
     const row = document.getElementById(`row-${id}`);
     if(row) row.classList.add('active');
 
-    const res = await fetch(`${API_BASE}/api/regions/${id}`);
-    const r = await res.json();
-    renderDetail(r);
-    map.setView([r.lat, r.lon], 6.5, { animate: true });
+    try {
+      const res = await fetch(`${API_BASE}/api/regions/${id}`);
+      const r = await res.json();
+      renderDetail(r);
+      map.setView([r.lat, r.lon], 6.5, { animate: true });
+    } catch(e) {
+      console.error("Failed to load region details", e);
+    }
   }
 
   function renderDetail(r){
@@ -309,11 +298,7 @@
     const ctx = document.getElementById('trendChart');
     const labels = r.history.map(h => h.date.slice(0,7));
     const values = r.history.map(h => h.value);
-
-    // Build a dashed forecast segment continuing from the last point.
     const p = r.prediction;
-    const forecastLabels = [labels[labels.length-1], `+${p.months_ahead}mo`];
-    const forecastValues = [values[values.length-1], p.predicted_value];
 
     if(chart) chart.destroy();
     chart = new Chart(ctx, {
@@ -350,85 +335,69 @@
     });
   }
 
-  // ---------- Region-to-region comparison ----------
-  let compareChart;
-
-  function populateCompareDropdowns(){
-    const opts = regionsCache.map(r => `<option value="${r.id}">${r.name} (${r.index.toUpperCase()})</option>`).join('');
-    document.getElementById('compareRegion1').innerHTML = opts;
-    document.getElementById('compareRegion2').innerHTML = opts;
-    // default: pick two different regions if available
-    if(regionsCache.length > 1){
-      document.getElementById('compareRegion2').selectedIndex = 1;
-    }
-  }
-
-  async function runCompare(){
-    const id1 = document.getElementById('compareRegion1').value;
-    const id2 = document.getElementById('compareRegion2').value;
-    if(!id1 || !id2) return;
-
-    const [r1, r2] = await Promise.all([
-      fetch(`${API_BASE}/api/regions/${id1}`).then(res => res.json()),
-      fetch(`${API_BASE}/api/regions/${id2}`).then(res => res.json())
-    ]);
-
-    renderCompareStats(r1, r2);
-    drawCompareChart(r1, r2);
-  }
-
-  function renderCompareStats(r1, r2){
-    const box = document.getElementById('compareStats');
-    box.innerHTML = [r1, r2].map((r, i) => `
-      <div class="stat" style="border-color:${i === 0 ? '#4DD9C9' : '#E8A33D'}55">
-        <div class="label">${r.name}</div>
-        <div class="value">
-          ${r.prediction.current_value}
-          <span class="badge badge-${r.prediction.risk_tier}" style="margin-left:6px;">${r.prediction.risk_tier}</span>
-        </div>
-        <div class="region-meta" style="margin-top:6px;">
-          ${r.index.toUpperCase()} · projected ${r.prediction.pct_change > 0 ? '+' : ''}${r.prediction.pct_change}% over ${r.prediction.months_ahead}mo
-        </div>
-      </div>
+  function populateCheckboxes(){
+    const container = document.getElementById('multiSelectContainer');
+    container.innerHTML = regionsCache.map(r => `
+      <label class="chk-label">
+        <input type="checkbox" value="${r.id}" onchange="evaluatePriority()" />
+        ${r.name}
+      </label>
     `).join('');
   }
 
-  function drawCompareChart(r1, r2){
-    const ctx = document.getElementById('compareChart');
-    // Both regions share the same synthetic/GEE date range, so labels line up.
-    const labels = r1.history.map(h => h.date.slice(0,7));
+  function evaluatePriority(){
+    const checkedBoxes = Array.from(document.querySelectorAll('#multiSelectContainer input:checked'));
+    const checkedIds = checkedBoxes.map(cb => cb.value);
+    
+    const listContainer = document.getElementById('priorityListContainer');
+    const verdictBox = document.getElementById('priorityVerdict');
 
-    if(compareChart) compareChart.destroy();
-    compareChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: `${r1.name} · ${r1.index.toUpperCase()}`,
-            data: r1.history.map(h => h.value),
-            borderColor: '#4DD9C9', backgroundColor: 'rgba(77,217,201,0.06)',
-            fill: false, tension: 0.25, pointRadius: 0, borderWidth: 2
-          },
-          {
-            label: `${r2.name} · ${r2.index.toUpperCase()}`,
-            data: r2.history.map(h => h.value),
-            borderColor: '#E8A33D', backgroundColor: 'rgba(232,163,61,0.06)',
-            fill: false, tension: 0.25, pointRadius: 0, borderWidth: 2
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { labels: { color: '#6E8B8B', font: { family: 'IBM Plex Mono', size: 10 } } }
-        },
-        scales: {
-          x: { ticks: { color: '#6E8B8B', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(148,197,197,0.06)' } },
-          y: { ticks: { color: '#6E8B8B', font: { size: 9 } }, grid: { color: 'rgba(148,197,197,0.06)' } }
-        }
-      }
+    if(checkedIds.length === 0){
+      listContainer.innerHTML = '';
+      verdictBox.style.display = 'none';
+      return;
+    }
+
+    let selectedRegions = regionsCache.filter(r => checkedIds.includes(r.id));
+    
+    const riskScores = { "High": 4, "Medium": 3, "Low": 2, "Recovering": 1 };
+    
+    selectedRegions.sort((a, b) => {
+      const scoreA = riskScores[a.risk_tier] || 0;
+      const scoreB = riskScores[b.risk_tier] || 0;
+      return scoreB - scoreA;
     });
+
+    listContainer.innerHTML = selectedRegions.map((r, index) => `
+      <div class="priority-item" style="border-left: 4px solid ${riskColor(r.risk_tier)}">
+        <div class="priority-rank">#${index + 1}</div>
+        <div class="priority-details">
+          <div style="font-size:15px; font-weight:600;">${r.name}</div>
+          <div style="font-size:12px; font-family:var(--mono); color:var(--muted);">
+            Index: ${r.index.toUpperCase()} &nbsp;|&nbsp; Current Status: ${r.current_value}
+          </div>
+        </div>
+        <span class="badge badge-${r.risk_tier}">${r.risk_tier}</span>
+      </div>
+    `).join('');
+
+    verdictBox.style.display = 'block';
+    if(selectedRegions.length === 1){
+      verdictBox.innerHTML = `Select at least one more region in the cluster to generate a comparative priority verdict.`;
+    } else {
+      const topPriority = selectedRegions[0];
+      const secondPriority = selectedRegions[1];
+      
+      let verdictHTML = `<strong>Priority 1 Allocation: ${topPriority.name}</strong>`;
+      
+      if(riskScores[topPriority.risk_tier] === riskScores[secondPriority.risk_tier]) {
+        verdictHTML += `Both <strong>${topPriority.name}</strong> and <strong>${secondPriority.name}</strong> currently face identical ${topPriority.risk_tier} risk levels. Resources should be distributed evenly between these top zones or evaluated based on localized population density.`;
+      } else {
+        verdictHTML += `Due to its severe ${topPriority.risk_tier.toLowerCase()} risk profile, <strong>${topPriority.name}</strong> requires the most urgent resource deployment. <strong>${secondPriority.name}</strong> should be scheduled for secondary relief scaling.`;
+      }
+      
+      verdictBox.innerHTML = verdictHTML;
+    }
   }
 
   initMap();
