@@ -109,6 +109,42 @@
 
   canvas#trendChart{ max-height: 220px; margin-top: 10px; }
 
+  .compare-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 6px; }
+  .compare-select{
+    background-color: #0C1A20;
+    color: var(--text);
+    border: 1px solid rgba(148,197,197,0.25);
+    border-radius: 6px;
+    padding: 9px 34px 9px 12px;
+    font-family: var(--sans);
+    font-size: 13px;
+    flex: 1;
+    min-width: 200px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234DD9C9'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5H5.25Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .compare-select:hover{ border-color: rgba(77,217,201,0.5); }
+  .compare-select:focus{ outline: none; border-color: var(--cyan); }
+  .compare-select option{
+    background-color: #0C1A20;
+    color: var(--text);
+    padding: 8px;
+  }
+  .compare-controls .vs{ font-family: var(--mono); color: var(--muted); font-size: 12px; }
+  #compareBtn{
+    background: var(--cyan); color: #06171a; border:none; border-radius:6px; padding: 9px 16px;
+    font-weight:600; font-size: 13px; cursor:pointer; font-family: var(--sans);
+  }
+  #compareBtn:hover{ opacity:0.9; }
+  canvas#compareChart{ max-height: 260px; margin-top: 14px; }
+
   footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; }
 </style>
 </head>
@@ -147,6 +183,24 @@
   </div>
 </main>
 
+<main style="grid-template-columns: 1fr; margin-top:18px;">
+  <div class="panel">
+    <div class="panel-head"><span>Compare regions</span><span id="compareHint">pick two regions →</span></div>
+    <div class="detail">
+      <div class="compare-controls">
+        <select id="compareRegion1" class="compare-select"></select>
+        <span class="vs">vs</span>
+        <select id="compareRegion2" class="compare-select"></select>
+        <button id="compareBtn" onclick="runCompare()">Compare</button>
+      </div>
+
+      <div class="stat-grid" id="compareStats" style="grid-template-columns: 1fr 1fr;"></div>
+
+      <canvas id="compareChart"></canvas>
+    </div>
+  </div>
+</main>
+
 <footer>TerraWatch demo build — synthetic NDVI/NDWI time series standing in for live Sentinel-2 / Google Earth Engine pulls. Swap the data source in backend/data_gen.py before the real event.</footer>
 
 <script>
@@ -176,6 +230,7 @@
       document.getElementById('apiStatus').style.color = '#6FCF97';
       renderList();
       renderMarkers();
+      populateCompareDropdowns();
       if(regionsCache.length) selectRegion(regionsCache[0].id);
     }catch(e){
       document.getElementById('apiStatus').textContent = 'offline — run the FastAPI backend';
@@ -279,6 +334,87 @@
             borderColor: '#E8A33D',
             borderDash: [5,4],
             pointRadius: 0, borderWidth: 2, fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color: '#6E8B8B', font: { family: 'IBM Plex Mono', size: 10 } } }
+        },
+        scales: {
+          x: { ticks: { color: '#6E8B8B', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(148,197,197,0.06)' } },
+          y: { ticks: { color: '#6E8B8B', font: { size: 9 } }, grid: { color: 'rgba(148,197,197,0.06)' } }
+        }
+      }
+    });
+  }
+
+  // ---------- Region-to-region comparison ----------
+  let compareChart;
+
+  function populateCompareDropdowns(){
+    const opts = regionsCache.map(r => `<option value="${r.id}">${r.name} (${r.index.toUpperCase()})</option>`).join('');
+    document.getElementById('compareRegion1').innerHTML = opts;
+    document.getElementById('compareRegion2').innerHTML = opts;
+    // default: pick two different regions if available
+    if(regionsCache.length > 1){
+      document.getElementById('compareRegion2').selectedIndex = 1;
+    }
+  }
+
+  async function runCompare(){
+    const id1 = document.getElementById('compareRegion1').value;
+    const id2 = document.getElementById('compareRegion2').value;
+    if(!id1 || !id2) return;
+
+    const [r1, r2] = await Promise.all([
+      fetch(`${API_BASE}/api/regions/${id1}`).then(res => res.json()),
+      fetch(`${API_BASE}/api/regions/${id2}`).then(res => res.json())
+    ]);
+
+    renderCompareStats(r1, r2);
+    drawCompareChart(r1, r2);
+  }
+
+  function renderCompareStats(r1, r2){
+    const box = document.getElementById('compareStats');
+    box.innerHTML = [r1, r2].map((r, i) => `
+      <div class="stat" style="border-color:${i === 0 ? '#4DD9C9' : '#E8A33D'}55">
+        <div class="label">${r.name}</div>
+        <div class="value">
+          ${r.prediction.current_value}
+          <span class="badge badge-${r.prediction.risk_tier}" style="margin-left:6px;">${r.prediction.risk_tier}</span>
+        </div>
+        <div class="region-meta" style="margin-top:6px;">
+          ${r.index.toUpperCase()} · projected ${r.prediction.pct_change > 0 ? '+' : ''}${r.prediction.pct_change}% over ${r.prediction.months_ahead}mo
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function drawCompareChart(r1, r2){
+    const ctx = document.getElementById('compareChart');
+    // Both regions share the same synthetic/GEE date range, so labels line up.
+    const labels = r1.history.map(h => h.date.slice(0,7));
+
+    if(compareChart) compareChart.destroy();
+    compareChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: `${r1.name} · ${r1.index.toUpperCase()}`,
+            data: r1.history.map(h => h.value),
+            borderColor: '#4DD9C9', backgroundColor: 'rgba(77,217,201,0.06)',
+            fill: false, tension: 0.25, pointRadius: 0, borderWidth: 2
+          },
+          {
+            label: `${r2.name} · ${r2.index.toUpperCase()}`,
+            data: r2.history.map(h => h.value),
+            borderColor: '#E8A33D', backgroundColor: 'rgba(232,163,61,0.06)',
+            fill: false, tension: 0.25, pointRadius: 0, borderWidth: 2
           }
         ]
       },
