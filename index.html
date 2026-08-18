@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TerraWatch — Earth Observation Change &amp; Risk Platform</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #081014;
+    --panel: #0E1B21;
+    --panel-2: #10232A;
+    --line: rgba(148, 197, 197, 0.14);
+    --text: #DCEDEC;
+    --muted: #6E8B8B;
+    --amber: #E8A33D;
+    --cyan: #4DD9C9;
+    --red: #E2634F;
+    --green: #6FCF97;
+    --mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: radial-gradient(ellipse at top left, #0B1A20 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .scanline{
+    position: fixed; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.5; animation: scan 6s linear infinite; z-index: 50; pointer-events:none;
+  }
+  @keyframes scan { 0%{top:0%} 100%{top:100%} }
+
+  header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    max-width:1360px; margin: 0 auto 18px auto; padding-bottom:16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .dot{
+    width:10px; height:10px; border-radius:50%; background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan); flex-shrink:0;
+  }
+  h1{ font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+  header .sub{ color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .status{ font-family: var(--mono); font-size:11px; color: var(--muted); text-align:right; }
+  .status b{ color: var(--cyan); }
+
+  main{ max-width:1360px; margin: 0 auto; display:grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; letter-spacing:1px; color: var(--muted); text-transform:uppercase;
+  }
+  #map{ height: 480px; width:100%; filter: saturate(0.85) brightness(0.95); }
+
+  .region-list{ padding: 6px; }
+  .region-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 12px 10px; border-radius:8px; cursor:pointer;
+    border: 1px solid transparent;
+  }
+  .region-row:hover{ background: rgba(77,217,201,0.06); }
+  .region-row.active{ background: rgba(77,217,201,0.1); border-color: rgba(77,217,201,0.3); }
+  .region-name{ font-weight:600; font-size:14px; }
+  .region-meta{ font-family: var(--mono); font-size:11px; color: var(--muted); }
+  .badge{
+    font-family: var(--mono); font-size: 10px; font-weight:600; padding: 4px 8px;
+    border-radius: 20px; letter-spacing: 0.5px; text-transform:uppercase; white-space:nowrap;
+  }
+  .badge-High{ background: rgba(226,99,79,0.15); color: var(--red); border:1px solid rgba(226,99,79,0.4); }
+  .badge-Medium{ background: rgba(232,163,61,0.15); color: var(--amber); border:1px solid rgba(232,163,61,0.4); }
+  .badge-Low{ background: rgba(111,207,151,0.15); color: var(--green); border:1px solid rgba(111,207,151,0.4); }
+  .badge-Recovering{ background: rgba(77,217,201,0.15); color: var(--cyan); border:1px solid rgba(77,217,201,0.4); }
+
+  .detail{ padding: 18px; }
+  .detail h2{ font-size: 18px; margin-bottom: 4px; }
+  .detail .idx{ font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom:16px; }
+
+  .stat-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin: 14px 0; }
+  .stat{ background: rgba(255,255,255,0.02); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .stat .label{ font-family: var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+  .stat .value{ font-family: var(--mono); font-size:18px; font-weight:600; margin-top:4px; }
+
+  .alert-box{
+    margin-top: 14px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height:1.5;
+    border-left: 3px solid var(--cyan); background: rgba(77,217,201,0.06);
+  }
+  .alert-box.High{ border-color: var(--red); background: rgba(226,99,79,0.07); }
+  .alert-box.Medium{ border-color: var(--amber); background: rgba(232,163,61,0.07); }
+  .alert-box.Low{ border-color: var(--green); background: rgba(111,207,151,0.07); }
+
+  canvas#trendChart{ max-height: 220px; margin-top: 10px; }
+
+  footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>TerraWatch</h1>
+      <div class="sub">AI-powered Earth Observation Change &amp; Risk Platform</div>
+    </div>
+  </div>
+  <div class="status">API: <b id="apiStatus">checking…</b><br>4 regions · Sentinel-2 NDVI/NDWI (demo data)</div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="panel-head"><span>Region map</span><span id="mapHint">click a marker or a row →</span></div>
+    <div id="map"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span>Monitored regions</span><span id="regionCount">—</span></div>
+    <div class="region-list" id="regionList"></div>
+  </div>
+</main>
+
+<main style="grid-template-columns: 1fr; margin-top:18px;">
+  <div class="panel">
+    <div class="panel-head"><span>Change detection + AI forecast</span><span id="detailIndex"></span></div>
+    <div class="detail" id="detail">
+      <div class="idx">Select a region above to see its history and prediction.</div>
+    </div>
+  </div>
+</main>
+
+<footer>TerraWatch demo build — synthetic NDVI/NDWI time series standing in for live Sentinel-2 / Google Earth Engine pulls. Swap the data source in backend/data_gen.py before the real event.</footer>
+
+<script>
+  const API_BASE = "http://localhost:8000"; // change if backend is deployed elsewhere
+  let map, markers = {}, chart;
+  let regionsCache = [];
+  let activeId = null;
+
+  function initMap(){
+    map = L.map('map', { zoomControl: true }).setView([22.5, 82, ], 4.4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd', maxZoom: 19
+    }).addTo(map);
+  }
+
+  function riskColor(tier){
+    return { High: '#E2634F', Medium: '#E8A33D', Low: '#6FCF97', Recovering: '#4DD9C9' }[tier] || '#6E8B8B';
+  }
+
+  async function loadRegions(){
+    try{
+      const res = await fetch(`${API_BASE}/api/regions`);
+      const data = await res.json();
+      regionsCache = data.regions;
+      document.getElementById('apiStatus').textContent = 'connected';
+      document.getElementById('apiStatus').style.color = '#6FCF97';
+      renderList();
+      renderMarkers();
+      if(regionsCache.length) selectRegion(regionsCache[0].id);
+    }catch(e){
+      document.getElementById('apiStatus').textContent = 'offline — run the FastAPI backend';
+      document.getElementById('apiStatus').style.color = '#E2634F';
+      document.getElementById('regionList').innerHTML =
+        `<div style="padding:16px;font-family:var(--mono);font-size:12px;color:var(--muted)">
+          Backend not reachable at ${API_BASE}.<br><br>
+          Run: <br><code>cd backend && uvicorn main:app --reload --port 8000</code>
+        </div>`;
+    }
+  }
+
+  function renderList(){
+    const list = document.getElementById('regionList');
+    document.getElementById('regionCount').textContent = `${regionsCache.length} active`;
+    list.innerHTML = regionsCache.map(r => `
+      <div class="region-row" id="row-${r.id}" onclick="selectRegion('${r.id}')">
+        <div>
+          <div class="region-name">${r.name}</div>
+          <div class="region-meta">${r.index.toUpperCase()} · ${r.current_value}</div>
+        </div>
+        <span class="badge badge-${r.risk_tier}">${r.risk_tier}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderMarkers(){
+    regionsCache.forEach(r => {
+      const marker = L.circleMarker([r.lat, r.lon], {
+        radius: 9, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
+        fillOpacity: 0.6, weight: 2
+      }).addTo(map);
+      marker.bindTooltip(`${r.name} — ${r.risk_tier} risk`);
+      marker.on('click', () => selectRegion(r.id));
+      markers[r.id] = marker;
+    });
+  }
+
+  async function selectRegion(id){
+    activeId = id;
+    document.querySelectorAll('.region-row').forEach(el => el.classList.remove('active'));
+    const row = document.getElementById(`row-${id}`);
+    if(row) row.classList.add('active');
+
+    const res = await fetch(`${API_BASE}/api/regions/${id}`);
+    const r = await res.json();
+    renderDetail(r);
+    map.setView([r.lat, r.lon], 6.5, { animate: true });
+  }
+
+  function renderDetail(r){
+    const p = r.prediction;
+    document.getElementById('detailIndex').textContent = `${r.index.toUpperCase()} · monthly`;
+
+    document.getElementById('detail').innerHTML = `
+      <h2>${r.name}</h2>
+      <div class="idx">${r.lat.toFixed(3)}°, ${r.lon.toFixed(3)}° · ${r.kind === 'water' ? 'Water extent (NDWI)' : 'Vegetation cover (NDVI)'}</div>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="label">Current</div><div class="value">${p.current_value}</div></div>
+        <div class="stat"><div class="label">${p.months_ahead}-mo forecast</div><div class="value">${p.predicted_value}</div></div>
+        <div class="stat"><div class="label">Projected change</div><div class="value" style="color:${p.pct_change < 0 ? 'var(--red)' : 'var(--green)'}">${p.pct_change > 0 ? '+' : ''}${p.pct_change}%</div></div>
+      </div>
+
+      <div class="alert-box ${p.risk_tier === 'Recovering' ? 'Low' : p.risk_tier}">
+        <b>${p.risk_tier} risk</b> — ${p.message}
+      </div>
+
+      <canvas id="trendChart"></canvas>
+    `;
+
+    drawChart(r);
+  }
+
+  function drawChart(r){
+    const ctx = document.getElementById('trendChart');
+    const labels = r.history.map(h => h.date.slice(0,7));
+    const values = r.history.map(h => h.value);
+
+    // Build a dashed forecast segment continuing from the last point.
+    const p = r.prediction;
+    const forecastLabels = [labels[labels.length-1], `+${p.months_ahead}mo`];
+    const forecastValues = [values[values.length-1], p.predicted_value];
+
+    if(chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [...labels, `+${p.months_ahead}mo`],
+        datasets: [
+          {
+            label: r.index.toUpperCase(),
+            data: values,
+            borderColor: '#4DD9C9',
+            backgroundColor: 'rgba(77,217,201,0.08)',
+            fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2
+          },
+          {
+            label: 'AI forecast',
+            data: new Array(values.length - 1).fill(null).concat([values[values.length-1], p.predicted_value]),
+            borderColor: '#E8A33D',
+            borderDash: [5,4],
+            pointRadius: 0, borderWidth: 2, fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color: '#6E8B8B', font: { family: 'IBM Plex Mono', size: 10 } } }
+        },
+        scales: {
+          x: { ticks: { color: '#6E8B8B', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(148,197,197,0.06)' } },
+          y: { ticks: { color: '#6E8B8B', font: { size: 9 } }, grid: { color: 'rgba(148,197,197,0.06)' } }
+        }
+      }
+    });
+  }
+
+  initMap();
+  loadRegions();
+</script>
+</body>
+</html>
