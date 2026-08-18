@@ -1,563 +1,486 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-900 text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TerraWatch — Earth Observation Change &amp; Risk Platform</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<style>
-  :root{
-    --bg: #081014;
-    --panel: #0E1B21;
-    --panel-2: #10232A;
-    --line: rgba(148, 197, 197, 0.14);
-    --text: #DCEDEC;
-    --muted: #6E8B8B;
-    --amber: #E8A33D;
-    --cyan: #4DD9C9;
-    --red: #E2634F;
-    --green: #6FCF97;
-    --mono: 'IBM Plex Mono', 'Courier New', monospace;
-    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    background: radial-gradient(ellipse at top left, #0B1A20 0%, var(--bg) 55%);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    padding: 20px;
-  }
-
-  header{
-    display:flex; align-items:baseline; justify-content:space-between;
-    max-width:1360px; margin: 0 auto 18px auto; padding-bottom:16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .brand{ display:flex; align-items:center; gap:12px; }
-  .brand .dot{
-    width:10px; height:10px; border-radius:50%; background: var(--cyan);
-    box-shadow: 0 0 12px var(--cyan); flex-shrink:0;
-  }
-  h1{ font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
-  header .sub{ color: var(--muted); font-family: var(--mono); font-size: 12px; }
-  .status{ font-family: var(--mono); font-size:11px; color: var(--muted); text-align:right; }
-  .status b{ color: var(--cyan); }
-
-  main{ max-width:1360px; margin: 0 auto; display:grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-  @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
-
-  .panel{
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .panel-head{
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 12px 16px; border-bottom: 1px solid var(--line);
-    font-family: var(--mono); font-size: 11px; letter-spacing:1px; color: var(--muted); text-transform:uppercase;
-  }
-  #map{ height: 480px; width:100%; filter: saturate(0.85) brightness(0.95); }
-
-  .region-list{ padding: 6px; max-height: 480px; overflow-y: auto; }
-  .region-list::-webkit-scrollbar, .checkbox-grid::-webkit-scrollbar { width: 6px; }
-  .region-list::-webkit-scrollbar-thumb, .checkbox-grid::-webkit-scrollbar-thumb { background: rgba(148,197,197,0.2); border-radius: 4px; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TerraWatch — EO Risk & Budget Command Center</title>
   
-  .region-row{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding: 12px 10px; border-radius:8px; cursor:pointer;
-    border: 1px solid transparent;
-  }
-  .region-row:hover{ background: rgba(77,217,201,0.06); }
-  .region-row.active{ background: rgba(77,217,201,0.1); border-color: rgba(77,217,201,0.3); }
-  .region-name{ font-weight:600; font-size:14px; }
-  .region-meta{ font-family: var(--mono); font-size:11px; color: var(--muted); }
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
   
-  .badge{
-    font-family: var(--mono); font-size: 10px; font-weight:600; padding: 4px 8px;
-    border-radius: 20px; letter-spacing: 0.5px; text-transform:uppercase; white-space:nowrap;
-  }
-  .badge-High{ background: rgba(226,99,79,0.15); color: var(--red); border:1px solid rgba(226,99,79,0.4); }
-  .badge-Medium{ background: rgba(232,163,61,0.15); color: var(--amber); border:1px solid rgba(232,163,61,0.4); }
-  .badge-Low{ background: rgba(111,207,151,0.15); color: var(--green); border:1px solid rgba(111,207,151,0.4); }
-  .badge-Recovering{ background: rgba(77,217,201,0.15); color: var(--cyan); border:1px solid rgba(77,217,201,0.4); }
-
-  .detail{ padding: 18px; }
-  .detail h2{ font-size: 18px; margin-bottom: 4px; }
-  .detail .idx{ font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom:16px; }
-
-  .stat-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin: 14px 0; }
-  .stat{ background: rgba(255,255,255,0.02); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
-  .stat .label{ font-family: var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
-  .stat .value{ font-family: var(--mono); font-size:18px; font-weight:600; margin-top:4px; }
-
-  .alert-box{
-    margin-top: 14px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height:1.5;
-    border-left: 3px solid var(--cyan); background: rgba(77,217,201,0.06);
-  }
-  .alert-box.High{ border-color: var(--red); background: rgba(226,99,79,0.07); }
-  .alert-box.Medium{ border-color: var(--amber); background: rgba(232,163,61,0.07); }
-  .alert-box.Low{ border-color: var(--green); background: rgba(111,207,151,0.07); }
-
-  canvas#trendChart{ max-height: 220px; margin-top: 10px; }
-
-  .checkbox-grid { 
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
-    gap: 12px; margin-bottom: 20px; padding: 10px; 
-    border: 1px solid var(--line); border-radius: 8px; background: rgba(0,0,0,0.1);
-    max-height: 160px; overflow-y: auto;
-  }
-  .chk-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text); }
-  .chk-label input { accent-color: var(--cyan); cursor: pointer; width:15px; height:15px; }
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
-  .budget-controls {
-    display: flex; gap: 12px; align-items: center; justify-content: space-between;
-    margin-bottom: 16px; background: rgba(255,255,255,0.02); padding: 12px;
-    border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap;
-  }
-  .budget-input-group { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 260px; }
-  .budget-input-group label { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; }
-  .budget-input-group input {
-    background: #0C1A20; border: 1px solid rgba(148,197,197,0.25); border-radius: 6px;
-    color: var(--cyan); font-family: var(--mono); font-size: 14px; font-weight: 600;
-    padding: 8px 12px; outline: none; width: 100%; max-width: 200px;
-  }
-  .budget-input-group input:focus { border-color: var(--cyan); }
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  .btn-pdf {
-    background: linear-gradient(135deg, var(--cyan) 0%, #30A89B 100%);
-    color: #081014; font-family: var(--sans); font-weight: 600; font-size: 12px;
-    border: none; border-radius: 6px; padding: 9px 16px; cursor: pointer;
-    display: flex; align-items: center; gap: 6px; transition: opacity 0.2s;
-  }
-  .btn-pdf:hover { opacity: 0.9; }
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-  .priority-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;}
-  .priority-item { 
-    display: flex; justify-content: space-between; align-items: center; 
-    padding: 14px; background: rgba(0,0,0,0.2); 
-    border: 1px solid var(--line); border-radius: 8px; 
-  }
-  .priority-rank { font-weight: 700; font-size: 18px; width: 35px; color: var(--muted); font-family: var(--mono); }
-  .priority-details { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-  
-  .budget-badge {
-    font-family: var(--mono); font-size: 13px; font-weight: 600;
-    color: var(--cyan); text-align: right;
-  }
-  .budget-share { font-size: 11px; color: var(--muted); }
+  <style>
+    .leaflet-container { background-color: #081014; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
-  .priority-result{
-    margin-top: 14px; padding: 16px; border-radius: 8px; font-size: 14px; line-height:1.6;
-    background: rgba(232,163,61,0.08); border: 1px solid rgba(232,163,61,0.3);
-  }
-  .priority-result strong{ color: var(--amber); font-weight: 600; font-size: 15px; display:block; margin-bottom:4px; }
-
-  footer{ max-width:1360px; margin: 18px auto 0 auto; font-family: var(--mono); font-size:10px; color: var(--muted); text-align:center; padding-bottom: 30px; }
-
-  .pdf-template {
-    display: none;
-    background: #ffffff;
-    color: #111111;
-    padding: 30px;
-    font-family: Arial, sans-serif;
-    box-sizing: border-box;
-    width: 100%;
-  }
-  .pdf-template h1 { color: #0E1B21; font-size: 22px; border-bottom: 2px solid #4DD9C9; padding-bottom: 8px; margin-bottom: 15px; }
-  .pdf-template table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-  .pdf-template th, .pdf-template td { border: 1px solid #dddddd; padding: 10px; text-align: left; font-size: 12px; }
-  .pdf-template th { background-color: #f2f2f2; font-weight: bold; }
-</style>
+    .dark-tooltip {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      color: #f8fafc;
+      border-radius: 0.5rem;
+      padding: 6px 10px;
+    }
+    .dark-tooltip::before { display: none; }
+    
+    .pdf-template {
+      display: none;
+      background: #ffffff;
+      color: #111111;
+      padding: 30px;
+      font-family: Arial, sans-serif;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .pdf-template table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .pdf-template th, .pdf-template td { border: 1px solid #dddddd; padding: 10px; text-align: left; font-size: 12px; }
+    .pdf-template th { background-color: #f2f2f2; font-weight: bold; }
+  </style>
 </head>
-<body>
+<body class="h-full w-full overflow-hidden font-sans bg-slate-950 relative">
 
-<header>
-  <div class="brand">
-    <div class="dot"></div>
-    <div>
-      <h1>TerraWatch</h1>
-      <div class="sub">AI-powered Earth Observation Change &amp; Risk Platform</div>
-    </div>
-  </div>
-  <div class="status">API: <b id="apiStatus">checking…</b><br>Sentinel-2 NDVI/NDWI Platform</div>
-</header>
+  <!-- Full-Bleed Map Canvas -->
+  <div id="map" class="absolute inset-0 z-0 h-full w-full"></div>
 
-<main>
-  <div class="panel">
-    <div class="panel-head"><span>Region map (Click any marker for details)</span><span id="mapHint">interactive map</span></div>
-    <div id="map"></div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-head"><span>Monitored regions</span><span id="regionCount">—</span></div>
-    <div class="region-list" id="regionList"></div>
-  </div>
-</main>
-
-<main style="grid-template-columns: 1fr; margin-top:18px;">
-  <div class="panel">
-    <div class="panel-head"><span>Change detection + AI forecast</span><span id="detailIndex"></span></div>
-    <div class="detail" id="detail">
-      <div class="idx">Select a region above or click on the map marker to see details, history and predictions.</div>
-    </div>
-  </div>
-</main>
-
-<main style="grid-template-columns: 1fr; margin-top:18px;">
-  <div class="panel">
-    <div class="panel-head"><span>AI Prediction Decision Support &amp; Resource Allocation</span><span>Forecast-Weighted Model</span></div>
-    <div class="detail">
-      <div style="margin-bottom:12px; font-size:13px; color:var(--muted);">
-        Select regions to calculate emergency relief split based on AI predicted index values, forecast drop severity, and vulnerability score.
+  <!-- Top Glass HUD Header -->
+  <header class="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-4 p-3 bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-2xl shadow-2xl">
+    <div class="flex items-center gap-3 pl-2">
+      <div class="relative flex h-3 w-3">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500" id="healthBadge"></span>
       </div>
-      
-      <div id="multiSelectContainer" class="checkbox-grid"></div>
-
-      <div class="budget-controls">
-        <div class="budget-input-group">
-          <label for="totalBudget">Total Relief Budget (₹):</label>
-          <input type="number" id="totalBudget" value="5000000" step="100000" oninput="evaluatePriority()" />
-        </div>
-        <button class="btn-pdf" onclick="exportPDFReport()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 18 15 15"></polyline></svg>
-          Export 1-Click PDF Report
-        </button>
+      <div>
+        <h1 class="font-bold text-base tracking-wide text-slate-100 leading-tight">TerraWatch Command Center</h1>
+        <p class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">AI Earth Observation & Risk Allocation</p>
       </div>
-      
-      <div id="priorityListContainer" class="priority-list"></div>
-      <div id="priorityVerdict" class="priority-result" style="display:none;"></div>
     </div>
+
+    <!-- Alert Ticker -->
+    <div id="alertTicker" class="hidden md:flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 px-3 py-1 rounded-full text-xs text-slate-300">
+      <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+      <span id="apiStatusText" class="font-mono text-[11px]">Syncing Backend API...</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex items-center gap-2">
+      <button id="basemapToggleBtn" onclick="toggleBasemap()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-xs font-semibold text-slate-200 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V11a2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
+        <span id="basemapLabel">Satellite Map</span>
+      </button>
+
+      <button onclick="fitBounds()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-slate-200 rounded-xl transition shadow-sm" title="Fit Camera View">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+      </button>
+
+      <button onclick="loadRegions()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-slate-200 rounded-xl transition shadow-sm" title="Sync Data">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Left Floating Panel: Region List & Filters -->
+  <aside class="absolute top-24 left-4 z-10 w-80 max-h-[calc(100vh-7rem)] flex flex-col bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl transition-all duration-300">
+    <div class="p-3 border-b border-slate-800 space-y-2">
+      <div class="relative">
+        <input id="searchInput" oninput="applyFilters()" type="text" placeholder="Search region or index..." class="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl pl-8 pr-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400">
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <select id="riskFilter" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2 py-1.5 text-slate-300 focus:outline-none focus:border-cyan-400">
+          <option value="ALL">All Risk Tiers</option>
+          <option value="High">High Risk</option>
+          <option value="Medium">Medium Risk</option>
+          <option value="Low">Low Risk</option>
+          <option value="Recovering">Recovering</option>
+        </select>
+
+        <select id="sortOrder" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2 py-1.5 text-cyan-400 font-semibold focus:outline-none focus:border-cyan-400">
+          <option value="risk-desc">Sort: High Risk</option>
+          <option value="risk-asc">Sort: Low Risk</option>
+          <option value="name-asc">Sort: Name (A-Z)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Executive Metrics Counter -->
+    <div class="grid grid-cols-3 gap-1 p-2 bg-slate-950/60 border-b border-slate-800 text-center text-xs">
+      <div><div class="text-[9px] text-red-400 uppercase font-semibold">High</div><div id="countHigh" class="font-bold text-red-300">0</div></div>
+      <div><div class="text-[9px] text-amber-400 uppercase font-semibold">Medium</div><div id="countMed" class="font-bold text-amber-300">0</div></div>
+      <div><div class="text-[9px] text-emerald-400 uppercase font-semibold">Low</div><div id="countLow" class="font-bold text-emerald-300">0</div></div>
+    </div>
+
+    <!-- Scrollable Region List -->
+    <div id="regionList" class="flex-1 overflow-y-auto divide-y divide-slate-800/80 p-2 space-y-1"></div>
+  </aside>
+
+  <!-- Right Panel: Telemetry, AI Chart & Prediction Engine -->
+  <aside class="absolute top-24 right-4 z-10 w-96 max-h-[calc(100vh-7rem)] overflow-y-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 space-y-4">
+    
+    <!-- Region Details & Chart Section -->
+    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+      <div id="detailContainer">
+        <p class="text-xs text-slate-400 font-mono">Select a region on map or list to inspect AI telemetry.</p>
+      </div>
+      <div class="mt-2">
+        <canvas id="trendChart" class="max-h-48 w-full"></canvas>
+      </div>
+    </div>
+
+    <!-- AI Budget Allocation Engine -->
+    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono">AI Relief Allocation Engine</h3>
+        <span class="text-[10px] text-slate-500 font-mono">Forecast Weighted</span>
+      </div>
+
+      <p class="text-[11px] text-slate-400 leading-relaxed">
+        Select target regions below to calculate prediction-weighted budget splits using predicted index drop severity.
+      </p>
+
+      <div id="multiSelectContainer" class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs"></div>
+
+      <div class="space-y-2">
+        <label class="block text-[10px] text-slate-400 font-mono uppercase">Total Relief Budget (₹)</label>
+        <input type="number" id="totalBudget" value="5000000" step="100000" oninput="evaluatePriority()" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-cyan-300 font-mono font-bold text-sm px-3 py-1.5 focus:outline-none focus:border-cyan-400">
+      </div>
+
+      <button onclick="exportPDFReport()" class="w-full bg-gradient-to-r from-cyan-500 to-teal-600 hover:opacity-90 text-slate-950 font-bold text-xs py-2 rounded-lg transition flex items-center justify-center gap-2 shadow-lg">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Export 1-Click PDF Report
+      </button>
+
+      <!-- Allocation Output List -->
+      <div id="priorityListContainer" class="space-y-2 pt-1"></div>
+      <div id="priorityVerdict" class="text-xs bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-lg text-amber-200 hidden"></div>
+    </div>
+  </aside>
+
+  <!-- PDF Export Container (Hidden) -->
+  <div id="pdfExportContainer" class="pdf-template">
+    <h1 style="color:#0f172a; font-size:20px; border-bottom:2px solid #06b6d4; padding-bottom:6px;">TerraWatch — AI Prediction Relief Allocation Report</h1>
+    <p style="font-size: 11px; color: #555; margin-top:5px;">Generated on: <span id="pdfDate"></span></p>
+    <div style="margin-top: 12px; font-size: 13px;">
+      <strong>Total Allocated Relief Budget:</strong> ₹<span id="pdfTotalBudget"></span>
+    </div>
+    
+    <table id="pdfTable">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Region Name</th>
+          <th>AI Pred. Value</th>
+          <th>Forecast Drop</th>
+          <th>Vuln. Score</th>
+          <th>Budget Allocation</th>
+          <th>Share (%)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div style="margin-top:15px; padding:10px; background:#f8fafc; border-left:3px solid #f59e0b; font-size:11px;" id="pdfVerdictText"></div>
   </div>
-</main>
 
-<div id="pdfExportContainer" class="pdf-template">
-  <h1>TerraWatch — AI Prediction Relief Allocation Report</h1>
-  <p style="font-size: 11px; color: #555;">Generated on: <span id="pdfDate"></span></p>
-  <div style="margin-top: 15px;">
-    <strong>Total Allocated Relief Budget:</strong> ₹<span id="pdfTotalBudget"></span>
-  </div>
-  
-  <table id="pdfTable">
-    <thead>
-      <tr>
-        <th>Priority</th>
-        <th>Region Name</th>
-        <th>AI Pred. Value</th>
-        <th>Forecast Drop</th>
-        <th>Vuln. Score</th>
-        <th>Budget Allocation</th>
-        <th>Share (%)</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <script>
+    const API_BASE = "http://127.0.0.1:8000"; 
+    let map, markers = {}, chart, activeTileLayer;
+    let regionsCache = [], currentEvaluation = [];
+    let isSatellite = false;
 
-  <div style="margin-top:20px; padding:12px; background:#f9f9f9; border-left:3px solid #E8A33D; font-size:12px;" id="pdfVerdictText">
-  </div>
-</div>
+    const darkBasemap = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    const satelliteBasemap = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
-<footer>TerraWatch Platform — Earth Observation analytics built for accurate risk monitoring.</footer>
+    function initMap(){
+      map = L.map('map', { zoomControl: false }).setView([22.5, 82], 4.5);
+      activeTileLayer = L.tileLayer(darkBasemap, { maxZoom: 19 }).addTo(map);
+    }
 
-<script>
-  const API_BASE = "http://127.0.0.1:8000"; 
-  let map, markers = {}, chart;
-  let regionsCache = [];
+    function toggleBasemap(){
+      map.removeLayer(activeTileLayer);
+      isSatellite = !isSatellite;
+      activeTileLayer = L.tileLayer(isSatellite ? satelliteBasemap : darkBasemap, { maxZoom: 19 }).addTo(map);
+      document.getElementById('basemapLabel').textContent = isSatellite ? "Dark Map" : "Satellite Map";
+    }
 
-  function initMap(){
-    map = L.map('map', { zoomControl: true }).setView([22.5, 82], 4.4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd', maxZoom: 19
-    }).addTo(map);
-  }
+    function fitBounds(){
+      if(regionsCache.length){
+        const group = L.featureGroup(Object.values(markers));
+        map.fitBounds(group.getBounds().pad(0.2));
+      }
+    }
 
-  function riskColor(tier){
-    return { High: '#E2634F', Medium: '#E8A33D', Low: '#6FCF97', Recovering: '#4DD9C9' }[tier] || '#6E8B8B';
-  }
+    function riskColor(tier){
+      return { High: '#f87171', Medium: '#fbbf24', Low: '#34d399', Recovering: '#22d3ee' }[tier] || '#94a3b8';
+    }
 
-  async function loadRegions(){
-    try{
-      const res = await fetch(`${API_BASE}/api/regions`);
-      const data = await res.json();
-      regionsCache = data.regions;
-      document.getElementById('apiStatus').textContent = 'connected';
-      document.getElementById('apiStatus').style.color = '#6FCF97';
-      renderList();
+    async function loadRegions(){
+      try{
+        const res = await fetch(`${API_BASE}/api/regions`);
+        const data = await res.json();
+        regionsCache = data.regions;
+        document.getElementById('healthBadge').className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+        document.getElementById('apiStatusText').textContent = "Backend API: Online";
+        document.getElementById('apiStatusText').className = "font-mono text-[11px] text-emerald-400";
+      }catch(e){
+        document.getElementById('healthBadge').className = "relative inline-flex rounded-full h-3 w-3 bg-amber-500";
+        document.getElementById('apiStatusText').textContent = "API Offline — Loading Demo Telemetry";
+        document.getElementById('apiStatusText').className = "font-mono text-[11px] text-amber-400";
+        regionsCache = getDemoData();
+      }
+      
+      updateMetrics();
       renderMarkers();
+      applyFilters();
       populateCheckboxes();
       if(regionsCache.length) selectRegion(regionsCache[0].id);
-    }catch(e){
-      document.getElementById('apiStatus').textContent = 'offline — run the FastAPI backend';
-      document.getElementById('apiStatus').style.color = '#E2634F';
-      document.getElementById('regionList').innerHTML =
-        `<div style="padding:16px;font-family:var(--mono);font-size:12px;color:var(--muted)">
-          Backend not reachable at ${API_BASE}.<br><br>
-          Run: <br><code>python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000</code>
-        </div>`;
     }
-  }
 
-  function renderList(){
-    const list = document.getElementById('regionList');
-    document.getElementById('regionCount').textContent = `${regionsCache.length} active`;
-    list.innerHTML = regionsCache.map(r => `
-      <div class="region-row" id="row-${r.id}" onclick="selectRegion('${r.id}')">
-        <div>
-          <div class="region-name">${r.name}</div>
-          <div class="region-meta">${r.index.toUpperCase()} · ${r.current_value}</div>
-        </div>
-        <span class="badge badge-${r.risk_tier}">${r.risk_tier}</span>
-      </div>
-    `).join('');
-  }
+    function updateMetrics(){
+      document.getElementById('countHigh').textContent = regionsCache.filter(r => r.risk_tier === 'High').length;
+      document.getElementById('countMed').textContent = regionsCache.filter(r => r.risk_tier === 'Medium').length;
+      document.getElementById('countLow').textContent = regionsCache.filter(r => r.risk_tier === 'Low' || r.risk_tier === 'Recovering').length;
+    }
 
-  function renderMarkers(){
-    regionsCache.forEach(r => {
-      const marker = L.circleMarker([r.lat, r.lon], {
-        radius: 9, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
-        fillOpacity: 0.7, weight: 2
-      }).addTo(map);
-      marker.bindTooltip(`${r.name} — Click for details`);
-      
-      marker.on('click', () => {
-        selectRegion(r.id);
+    function renderMarkers(){
+      Object.values(markers).forEach(m => map.removeLayer(m));
+      markers = {};
+
+      regionsCache.forEach(r => {
+        const marker = L.circleMarker([r.lat, r.lon], {
+          radius: 8, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
+          fillOpacity: 0.8, weight: 2
+        }).addTo(map);
+
+        marker.bindTooltip(`<b>${r.name}</b><br>Tier: ${r.risk_tier}`, { className: 'dark-tooltip' });
+        marker.on('click', () => selectRegion(r.id));
+        markers[r.id] = marker;
+      });
+    }
+
+    function applyFilters(){
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const risk = document.getElementById('riskFilter').value;
+      const sort = document.getElementById('sortOrder').value;
+
+      let filtered = regionsCache.filter(r => {
+        const matchSearch = r.name.toLowerCase().includes(search) || r.index.toLowerCase().includes(search);
+        const matchRisk = risk === 'ALL' || r.risk_tier === risk;
+        return matchSearch && matchRisk;
       });
 
-      markers[r.id] = marker;
-    });
-  }
+      if(sort === 'risk-desc'){
+        const order = { High: 3, Medium: 2, Low: 1, Recovering: 0 };
+        filtered.sort((a,b) => order[b.risk_tier] - order[a.risk_tier]);
+      } else if(sort === 'risk-asc'){
+        const order = { High: 3, Medium: 2, Low: 1, Recovering: 0 };
+        filtered.sort((a,b) => order[a.risk_tier] - order[b.risk_tier]);
+      } else if(sort === 'name-asc'){
+        filtered.sort((a,b) => a.name.localeCompare(b.name));
+      }
 
-  async function selectRegion(id){
-    document.querySelectorAll('.region-row').forEach(el => el.classList.remove('active'));
-    const row = document.getElementById(`row-${id}`);
-    if(row) row.classList.add('active');
+      const list = document.getElementById('regionList');
+      list.innerHTML = filtered.map(r => `
+        <div onclick="selectRegion('${r.id}')" class="p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer transition flex items-center justify-between border border-transparent hover:border-slate-700/60">
+          <div>
+            <div class="text-xs font-semibold text-slate-200">${r.name}</div>
+            <div class="text-[10px] font-mono text-slate-400">${r.index.toUpperCase()} · ${r.current_value}</div>
+          </div>
+          <span class="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase" style="background:${riskColor(r.risk_tier)}20; color:${riskColor(r.risk_tier)}; border:1px solid ${riskColor(r.risk_tier)}50">${r.risk_tier}</span>
+        </div>
+      `).join('');
+    }
 
-    try {
-      const res = await fetch(`${API_BASE}/api/regions/${id}`);
-      const r = await res.json();
+    async function selectRegion(id){
+      let r = regionsCache.find(x => x.id === id);
+      try {
+        const res = await fetch(`${API_BASE}/api/regions/${id}`);
+        if(res.ok) r = await res.json();
+      } catch(e){}
+
       renderDetail(r);
       map.setView([r.lat, r.lon], 6.5, { animate: true });
-    } catch(e) {
-      console.error("Failed to load region details", e);
     }
-  }
 
-  function renderDetail(r){
-    const p = r.prediction;
-    document.getElementById('detailIndex').textContent = `${r.index.toUpperCase()} · monthly`;
+    function renderDetail(r){
+      const p = r.prediction || { current_value: r.current_value, predicted_value: (r.current_value * 0.9).toFixed(2), pct_change: -10, months_ahead: 3, risk_tier: r.risk_tier, message: 'Forecasted index decline.' };
+      
+      document.getElementById('detailContainer').innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <h2 class="text-sm font-bold text-slate-100">${r.name}</h2>
+            <p class="text-[10px] font-mono text-slate-400">${r.lat.toFixed(2)}°, ${r.lon.toFixed(2)}° · ${r.index.toUpperCase()}</p>
+          </div>
+          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full" style="background:${riskColor(p.risk_tier)}20; color:${riskColor(p.risk_tier)};">${p.risk_tier}</span>
+        </div>
 
-    document.getElementById('detail').innerHTML = `
-      <h2>${r.name}</h2>
-      <div class="idx">${r.lat.toFixed(3)}°, ${r.lon.toFixed(3)}° · ${r.kind === 'water' ? 'Water extent (NDWI)' : 'Vegetation cover (NDVI)'}</div>
+        <div class="grid grid-cols-3 gap-1.5 my-3 text-center">
+          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">Current</div><div class="text-xs font-mono font-bold text-slate-200">${p.current_value}</div></div>
+          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">+${p.months_ahead}m Forecast</div><div class="text-xs font-mono font-bold text-cyan-400">${p.predicted_value}</div></div>
+          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">Change</div><div class="text-xs font-mono font-bold ${p.pct_change < 0 ? 'text-red-400':'text-emerald-400'}">${p.pct_change}%</div></div>
+        </div>
 
-      <div class="stat-grid">
-        <div class="stat"><div class="label">Current</div><div class="value">${p.current_value}</div></div>
-        <div class="stat"><div class="label">${p.months_ahead}-mo forecast</div><div class="value">${p.predicted_value}</div></div>
-        <div class="stat"><div class="label">Projected change</div><div class="value" style="color:${p.pct_change < 0 ? 'var(--red)' : 'var(--green)'}">${p.pct_change > 0 ? '+' : ''}${p.pct_change}%</div></div>
-      </div>
+        <p class="text-[11px] text-slate-300 bg-slate-900/80 p-2 rounded-lg border border-slate-800">${p.message}</p>
+      `;
 
-      <div class="alert-box ${p.risk_tier === 'Recovering' ? 'Low' : p.risk_tier}">
-        <b>${p.risk_tier} risk</b> — ${p.message}
-      </div>
+      drawChart(r, p);
+    }
 
-      <canvas id="trendChart"></canvas>
-    `;
+    function drawChart(r, p){
+      const ctx = document.getElementById('trendChart');
+      const history = r.history || generateMockHistory(r.current_value);
+      const labels = history.map(h => h.date.slice(0,7));
+      const values = history.map(h => h.value);
 
-    drawChart(r);
-  }
-
-  function drawChart(r){
-    const ctx = document.getElementById('trendChart');
-    const labels = r.history.map(h => h.date.slice(0,7));
-    const values = r.history.map(h => h.value);
-    const p = r.prediction;
-
-    if(chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [...labels, `+${p.months_ahead}mo`],
-        datasets: [
-          {
-            label: r.index.toUpperCase(),
-            data: values,
-            borderColor: '#4DD9C9',
-            backgroundColor: 'rgba(77,217,201,0.08)',
-            fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2
-          },
-          {
-            label: 'AI forecast',
-            data: new Array(values.length - 1).fill(null).concat([values[values.length-1], p.predicted_value]),
-            borderColor: '#E8A33D',
-            borderDash: [5,4],
-            pointRadius: 0, borderWidth: 2, fill: false
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { labels: { color: '#6E8B8B', font: { family: 'IBM Plex Mono', size: 10 } } }
+      if(chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [...labels, `+${p.months_ahead || 3}mo`],
+          datasets: [
+            { label: r.index.toUpperCase(), data: values, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.08)', fill: true, tension: 0.2, pointRadius: 0 },
+            { label: 'AI Forecast', data: new Array(values.length - 1).fill(null).concat([values[values.length-1], parseFloat(p.predicted_value)]), borderColor: '#fbbf24', borderDash: [4,4], pointRadius: 0 }
+          ]
         },
-        scales: {
-          x: { ticks: { color: '#6E8B8B', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(148,197,197,0.06)' } },
-          y: { ticks: { color: '#6E8B8B', font: { size: 9 } }, grid: { color: 'rgba(148,197,197,0.06)' } }
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
+            y: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
+          }
         }
-      }
-    });
-  }
-
-  function populateCheckboxes(){
-    const container = document.getElementById('multiSelectContainer');
-    container.innerHTML = regionsCache.map(r => `
-      <label class="chk-label">
-        <input type="checkbox" value="${r.id}" onchange="evaluatePriority()" />
-        ${r.name}
-      </label>
-    `).join('');
-  }
-
-  let currentEvaluation = [];
-
-  function calculatePredictionScore(region){
-    const predVal = region.prediction ? parseFloat(region.prediction.predicted_value) : parseFloat(region.current_value);
-    const pctChange = region.prediction ? parseFloat(region.prediction.pct_change) : (region.pct_change || 0);
-
-    // AI Prediction Vulnerability Score Formula
-    const indexDeficit = Math.max(0.01, 1.0 - predVal);
-    const dropPenalty = pctChange < 0 ? Math.abs(pctChange) * 2.0 : 0;
-    
-    const vulnerabilityScore = (indexDeficit * 50) + dropPenalty;
-    return {
-      predVal: predVal.toFixed(2),
-      pctChange: pctChange.toFixed(1),
-      score: parseFloat(vulnerabilityScore.toFixed(2))
-    };
-  }
-
-  function evaluatePriority(){
-    const checkedBoxes = Array.from(document.querySelectorAll('#multiSelectContainer input:checked'));
-    const checkedIds = checkedBoxes.map(cb => cb.value);
-    const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
-    
-    const listContainer = document.getElementById('priorityListContainer');
-    const verdictBox = document.getElementById('priorityVerdict');
-
-    if(checkedIds.length === 0){
-      listContainer.innerHTML = '';
-      verdictBox.style.display = 'none';
-      currentEvaluation = [];
-      return;
+      });
     }
 
-    let selectedRegions = regionsCache.filter(r => checkedIds.includes(r.id));
-    
-    let evaluatedList = selectedRegions.map(r => {
-      const predData = calculatePredictionScore(r);
-      return {
-        ...r,
-        predVal: predData.predVal,
-        pctChange: predData.pctChange,
-        vulnerabilityScore: predData.score
-      };
-    });
+    function populateCheckboxes(){
+      const container = document.getElementById('multiSelectContainer');
+      container.innerHTML = regionsCache.map(r => `
+        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+          <input type="checkbox" value="${r.id}" onchange="evaluatePriority()" class="accent-cyan-400 rounded">
+          <span class="truncate">${r.name}</span>
+        </label>
+      `).join('');
+    }
 
-    evaluatedList.sort((a, b) => b.vulnerabilityScore - a.vulnerabilityScore);
+    function calculatePredictionScore(region){
+      const predVal = region.prediction ? parseFloat(region.prediction.predicted_value) : parseFloat(region.current_value * 0.9);
+      const pctChange = region.prediction ? parseFloat(region.prediction.pct_change) : -10;
 
-    const totalVulnerabilityScore = evaluatedList.reduce((acc, r) => acc + r.vulnerabilityScore, 0);
+      const indexDeficit = Math.max(0.01, 1.0 - predVal);
+      const dropPenalty = pctChange < 0 ? Math.abs(pctChange) * 2.0 : 0;
+      return { predVal: predVal.toFixed(2), pctChange: pctChange.toFixed(1), score: parseFloat(((indexDeficit * 50) + dropPenalty).toFixed(2)) };
+    }
 
-    currentEvaluation = evaluatedList.map(r => {
-      const sharePct = (r.vulnerabilityScore / totalVulnerabilityScore) * 100;
-      const allocatedAmount = (r.vulnerabilityScore / totalVulnerabilityScore) * totalBudget;
-      return { ...r, sharePct, allocatedAmount };
-    });
+    function evaluatePriority(){
+      const checkedIds = Array.from(document.querySelectorAll('#multiSelectContainer input:checked')).map(cb => cb.value);
+      const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
+      const listContainer = document.getElementById('priorityListContainer');
+      const verdictBox = document.getElementById('priorityVerdict');
 
-    listContainer.innerHTML = currentEvaluation.map((r, index) => `
-      <div class="priority-item" style="border-left: 4px solid ${riskColor(r.risk_tier)}">
-        <div class="priority-rank">#${index + 1}</div>
-        <div class="priority-details">
-          <div style="font-size:15px; font-weight:600;">${r.name}</div>
-          <div style="font-size:12px; font-family:var(--mono); color:var(--muted);">
-            Index: ${r.index.toUpperCase()} &nbsp;|&nbsp; AI Forecast: <span style="color:var(--text); font-weight:600;">${r.predVal}</span> 
-            (${r.pctChange < 0 ? '' : '+'}${r.pctChange}%) &nbsp;|&nbsp; AI Vuln Score: <span style="color:var(--cyan);">${r.vulnerabilityScore}</span>
+      if(checkedIds.length === 0){
+        listContainer.innerHTML = '';
+        verdictBox.classList.add('hidden');
+        currentEvaluation = [];
+        return;
+      }
+
+      let selected = regionsCache.filter(r => checkedIds.includes(r.id)).map(r => {
+        const pred = calculatePredictionScore(r);
+        return { ...r, ...pred };
+      }).sort((a,b) => b.score - a.score);
+
+      const totalScore = selected.reduce((acc, r) => acc + r.score, 0);
+
+      currentEvaluation = selected.map(r => ({
+        ...r, sharePct: (r.score / totalScore) * 100, allocatedAmount: (r.score / totalScore) * totalBudget
+      }));
+
+      listContainer.innerHTML = currentEvaluation.map((r, i) => `
+        <div class="p-2 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between text-xs">
+          <div>
+            <div class="font-bold text-slate-200">#${i+1} ${r.name}</div>
+            <div class="text-[10px] font-mono text-slate-400">Score: <span class="text-cyan-400">${r.score}</span> | Drop: ${r.pctChange}%</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono font-bold text-cyan-300">₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</div>
+            <div class="text-[9px] font-mono text-slate-500">${r.sharePct.toFixed(1)}% share</div>
           </div>
         </div>
-        <div style="text-align:right; margin-right:15px;">
-          <div class="budget-badge">₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</div>
-          <div class="budget-share">${r.sharePct.toFixed(1)}% forecast weight</div>
-        </div>
-        <span class="badge badge-${r.risk_tier}">${r.risk_tier}</span>
-      </div>
-    `).join('');
+      `).join('');
 
-    verdictBox.style.display = 'block';
-    if(currentEvaluation.length === 1){
-      verdictBox.innerHTML = `Select at least one more region to evaluate comparative AI prediction budget distribution.`;
-    } else {
-      const top = currentEvaluation[0];
-      const second = currentEvaluation[1];
-      let verdictHTML = `<strong>AI Prediction-Based Allocation Verdict:</strong>`;
-      verdictHTML += `Based on predicted index deficit and drop severity, <strong>${top.name}</strong> has the highest AI Vulnerability Score (<strong>${top.vulnerabilityScore}</strong>), securing <strong>₹${Math.round(top.allocatedAmount).toLocaleString('en-IN')} (${top.sharePct.toFixed(1)}%)</strong>. <strong>${second.name}</strong> follows with a score of ${second.vulnerabilityScore}.`;
-      verdictBox.innerHTML = verdictHTML;
-    }
-  }
-
-  async function exportPDFReport(){
-    if(!currentEvaluation || currentEvaluation.length === 0){
-      alert("Pehle niche diye checkboxes se regions select karo!");
-      return;
+      verdictBox.classList.remove('hidden');
+      if(currentEvaluation.length === 1){
+        verdictBox.textContent = "Select more regions to generate comparative AI relief distribution.";
+      } else {
+        const top = currentEvaluation[0];
+        verdictBox.innerHTML = `<strong>Priority Rank #1:</strong> ${top.name} with AI Vuln Score <strong>${top.score}</strong> gets <strong>₹${Math.round(top.allocatedAmount).toLocaleString('en-IN')} (${top.sharePct.toFixed(1)}%)</strong>.`;
+      }
     }
 
-    const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
-    document.getElementById('pdfDate').textContent = new Date().toLocaleString();
-    document.getElementById('pdfTotalBudget').textContent = totalBudget.toLocaleString('en-IN');
-    
-    const tbody = document.querySelector('#pdfTable tbody');
-    tbody.innerHTML = currentEvaluation.map((r, idx) => `
-      <tr>
-        <td>#${idx + 1}</td>
-        <td><strong>${r.name}</strong></td>
-        <td>${r.predVal}</td>
-        <td>${r.pctChange}%</td>
-        <td>${r.vulnerabilityScore}</td>
-        <td>₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</td>
-        <td>${r.sharePct.toFixed(1)}%</td>
-      </tr>
-    `).join('');
+    async function exportPDFReport(){
+      if(!currentEvaluation.length){ alert("Please select regions first!"); return; }
 
-    document.getElementById('pdfVerdictText').innerHTML = document.getElementById('priorityVerdict').innerHTML;
+      const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
+      document.getElementById('pdfDate').textContent = new Date().toLocaleString();
+      document.getElementById('pdfTotalBudget').textContent = totalBudget.toLocaleString('en-IN');
+      
+      document.querySelector('#pdfTable tbody').innerHTML = currentEvaluation.map((r, idx) => `
+        <tr>
+          <td>#${idx + 1}</td>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.predVal}</td>
+          <td>${r.pctChange}%</td>
+          <td>${r.score}</td>
+          <td>₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</td>
+          <td>${r.sharePct.toFixed(1)}%</td>
+        </tr>
+      `).join('');
 
-    const element = document.getElementById('pdfExportContainer');
-    element.style.display = 'block';
+      document.getElementById('pdfVerdictText').innerHTML = document.getElementById('priorityVerdict').innerHTML;
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+      const element = document.getElementById('pdfExportContainer');
+      element.style.display = 'block';
 
-    const opt = {
-      margin:       0.4,
-      filename:     `TerraWatch_AIPrediction_Report_${Date.now()}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
+      await new Promise(r => setTimeout(r, 150));
+      await html2pdf().set({
+        margin: 0.4, filename: `TerraWatch_AIPrediction_Report_${Date.now()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      }).from(element).save();
 
-    try {
-      await html2pdf().set(opt).from(element).save();
-    } catch (err) {
-      console.error("PDF Export Error:", err);
-    } finally {
       element.style.display = 'none';
     }
-  }
 
-  initMap();
-  loadRegions();
-</script>
+    function getDemoData(){
+      return [
+        { id: "reg_1", name: "Marathwada Basin", index: "ndvi", current_value: 0.28, risk_tier: "High", lat: 19.87, lon: 75.34 },
+        { id: "reg_2", name: "Bundelkhand Reserve", index: "ndwi", current_value: 0.35, risk_tier: "Medium", lat: 25.43, lon: 78.56 },
+        { id: "reg_3", name: "Cauvery Delta", index: "ndvi", current_value: 0.62, risk_tier: "Low", lat: 10.78, lon: 79.13 },
+        { id: "reg_4", name: "Kutch Marshland", index: "ndwi", current_value: 0.48, risk_tier: "Recovering", lat: 23.73, lon: 69.85 }
+      ];
+    }
+
+    function generateMockHistory(val){
+      return [
+        { date: "2026-01", value: val + 0.1 }, { date: "2026-02", value: val + 0.05 },
+        { date: "2026-03", value: val + 0.02 }, { date: "2026-04", value: val }
+      ];
+    }
+
+    initMap();
+    loadRegions();
+  </script>
 </body>
 </html>
