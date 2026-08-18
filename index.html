@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-900 text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950">
+<html lang="en" class="h-full bg-slate-950 text-slate-100 antialiased">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TerraWatch — EO Risk & Budget Command Center</title>
+  <title>TerraWatch — Disaster Risk & Budget Allocator</title>
   
+  <!-- Typography: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -19,178 +24,179 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
-    .leaflet-container { background-color: #081014; }
+    body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    
+    .leaflet-container { background-color: #020617; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-    .dark-tooltip {
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(51, 65, 85, 0.9);
+    .custom-tooltip {
+      background: #0f172a;
+      border: 1px solid #334155;
       color: #f8fafc;
-      border-radius: 0.5rem;
+      border-radius: 6px;
       padding: 6px 10px;
+      font-size: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-    .dark-tooltip::before { display: none; }
+    .custom-tooltip::before { display: none; }
     
     .pdf-template {
       display: none;
       background: #ffffff;
-      color: #111111;
-      padding: 30px;
-      font-family: Arial, sans-serif;
+      color: #0f172a;
+      padding: 32px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       box-sizing: border-box;
       width: 100%;
     }
-    .pdf-template table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    .pdf-template th, .pdf-template td { border: 1px solid #dddddd; padding: 10px; text-align: left; font-size: 12px; }
-    .pdf-template th { background-color: #f2f2f2; font-weight: bold; }
+    .pdf-template table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .pdf-template th, .pdf-template td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; font-size: 12px; }
+    .pdf-template th { background-color: #f8fafc; font-weight: 600; color: #475569; }
   </style>
 </head>
-<body class="h-full w-full overflow-hidden font-sans bg-slate-950 relative">
+<body class="h-full w-full overflow-hidden bg-slate-950 text-slate-200 relative">
 
-  <!-- Full-Bleed Map Canvas -->
+  <!-- Full-Bleed Map -->
   <div id="map" class="absolute inset-0 z-0 h-full w-full"></div>
 
-  <!-- Top Glass HUD Header -->
-  <header class="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-4 p-3 bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-2xl shadow-2xl">
-    <div class="flex items-center gap-3 pl-2">
-      <div class="relative flex h-3 w-3">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500" id="healthBadge"></span>
-      </div>
+  <!-- Top Navigation Header -->
+  <header class="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl shadow-lg">
+    <div class="flex items-center gap-3">
+      <div class="w-2.5 h-2.5 rounded-full bg-emerald-500" id="healthBadge"></div>
       <div>
-        <h1 class="font-bold text-base tracking-wide text-slate-100 leading-tight">TerraWatch Command Center</h1>
-        <p class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">AI Earth Observation & Risk Allocation</p>
+        <h1 class="font-semibold text-sm tracking-tight text-slate-100">TerraWatch Analytics</h1>
+        <p class="text-xs text-slate-400">Earth Observation & Vulnerability Allocator</p>
       </div>
     </div>
 
-    <!-- Alert Ticker -->
-    <div id="alertTicker" class="hidden md:flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 px-3 py-1 rounded-full text-xs text-slate-300">
-      <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-      <span id="apiStatusText" class="font-mono text-[11px]">Syncing Backend API...</span>
+    <!-- Status Bar -->
+    <div id="alertTicker" class="hidden md:flex items-center gap-2 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-400">
+      <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+      <span id="apiStatusText" class="font-medium">Connecting to service...</span>
     </div>
 
-    <!-- Controls -->
+    <!-- Actions -->
     <div class="flex items-center gap-2">
-      <button id="basemapToggleBtn" onclick="toggleBasemap()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-xs font-semibold text-slate-200 rounded-xl transition flex items-center gap-1.5 shadow-sm">
-        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V11a2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
-        <span id="basemapLabel">Satellite Map</span>
+      <button id="basemapToggleBtn" onclick="toggleBasemap()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg transition-all flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V11a2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
+        <span id="basemapLabel">Satellite</span>
       </button>
 
-      <button onclick="fitBounds()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-slate-200 rounded-xl transition shadow-sm" title="Fit Camera View">
+      <button onclick="fitBounds()" class="p-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 rounded-lg transition-all" title="Fit Map View">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
       </button>
 
-      <button onclick="loadRegions()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-slate-200 rounded-xl transition shadow-sm" title="Sync Data">
+      <button onclick="loadRegions()" class="p-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 rounded-lg transition-all" title="Refresh Data">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
       </button>
     </div>
   </header>
 
-  <!-- Left Floating Panel: Region List & Filters -->
-  <aside class="absolute top-24 left-4 z-10 w-80 max-h-[calc(100vh-7rem)] flex flex-col bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl transition-all duration-300">
-    <div class="p-3 border-b border-slate-800 space-y-2">
+  <!-- Left Sidebar: Filter & Region List -->
+  <aside class="absolute top-20 left-4 z-10 w-80 max-h-[calc(100vh-6rem)] flex flex-col bg-slate-900/95 border border-slate-800 rounded-xl shadow-xl">
+    <div class="p-3 border-b border-slate-800/80 space-y-2">
       <div class="relative">
-        <input id="searchInput" oninput="applyFilters()" type="text" placeholder="Search region or index..." class="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl pl-8 pr-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400">
+        <input id="searchInput" oninput="applyFilters()" type="text" placeholder="Filter regions..." class="w-full bg-slate-950 border border-slate-800 text-xs rounded-lg pl-8 pr-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors">
         <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <select id="riskFilter" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2 py-1.5 text-slate-300 focus:outline-none focus:border-cyan-400">
-          <option value="ALL">All Risk Tiers</option>
+        <select id="riskFilter" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 text-xs rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-indigo-500">
+          <option value="ALL">All Risk Levels</option>
           <option value="High">High Risk</option>
           <option value="Medium">Medium Risk</option>
           <option value="Low">Low Risk</option>
           <option value="Recovering">Recovering</option>
         </select>
 
-        <select id="sortOrder" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2 py-1.5 text-cyan-400 font-semibold focus:outline-none focus:border-cyan-400">
-          <option value="risk-desc">Sort: High Risk</option>
-          <option value="risk-asc">Sort: Low Risk</option>
+        <select id="sortOrder" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 text-xs rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-indigo-500">
+          <option value="risk-desc">Sort: Highest Risk</option>
+          <option value="risk-asc">Sort: Lowest Risk</option>
           <option value="name-asc">Sort: Name (A-Z)</option>
         </select>
       </div>
     </div>
 
-    <!-- Executive Metrics Counter -->
-    <div class="grid grid-cols-3 gap-1 p-2 bg-slate-950/60 border-b border-slate-800 text-center text-xs">
-      <div><div class="text-[9px] text-red-400 uppercase font-semibold">High</div><div id="countHigh" class="font-bold text-red-300">0</div></div>
-      <div><div class="text-[9px] text-amber-400 uppercase font-semibold">Medium</div><div id="countMed" class="font-bold text-amber-300">0</div></div>
-      <div><div class="text-[9px] text-emerald-400 uppercase font-semibold">Low</div><div id="countLow" class="font-bold text-emerald-300">0</div></div>
+    <!-- Summary Numbers -->
+    <div class="grid grid-cols-3 gap-1 px-3 py-2 bg-slate-950/40 border-b border-slate-800 text-center text-xs">
+      <div><span class="text-[10px] text-slate-500 block">High</span><span id="countHigh" class="font-mono font-semibold text-rose-400">0</span></div>
+      <div><span class="text-[10px] text-slate-500 block">Medium</span><span id="countMed" class="font-mono font-semibold text-amber-400">0</span></div>
+      <div><span class="text-[10px] text-slate-500 block">Low</span><span id="countLow" class="font-mono font-semibold text-emerald-400">0</span></div>
     </div>
 
-    <!-- Scrollable Region List -->
-    <div id="regionList" class="flex-1 overflow-y-auto divide-y divide-slate-800/80 p-2 space-y-1"></div>
+    <!-- Region List -->
+    <div id="regionList" class="flex-1 overflow-y-auto divide-y divide-slate-800/50 p-2 space-y-1"></div>
   </aside>
 
-  <!-- Right Panel: Telemetry, AI Chart & Prediction Engine -->
-  <aside class="absolute top-24 right-4 z-10 w-96 max-h-[calc(100vh-7rem)] overflow-y-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 space-y-4">
+  <!-- Right Sidebar: Analytics & Allocation -->
+  <aside class="absolute top-20 right-4 z-10 w-96 max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900/95 border border-slate-800 rounded-xl shadow-xl p-4 space-y-4">
     
-    <!-- Region Details & Chart Section -->
-    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+    <!-- Telemetry Details -->
+    <div class="bg-slate-950/50 border border-slate-800 rounded-lg p-3">
       <div id="detailContainer">
-        <p class="text-xs text-slate-400 font-mono">Select a region on map or list to inspect AI telemetry.</p>
+        <p class="text-xs text-slate-500">Select a region from the map or sidebar to inspect regional telemetry.</p>
       </div>
-      <div class="mt-2">
-        <canvas id="trendChart" class="max-h-48 w-full"></canvas>
+      <div class="mt-3">
+        <canvas id="trendChart" class="max-h-44 w-full"></canvas>
       </div>
     </div>
 
-    <!-- AI Budget Allocation Engine -->
-    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-3">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono">AI Relief Allocation Engine</h3>
-        <span class="text-[10px] text-slate-500 font-mono">Forecast Weighted</span>
+    <!-- Budget Calculator -->
+    <div class="bg-slate-950/50 border border-slate-800 rounded-lg p-3 space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+        <h3 class="text-xs font-semibold text-slate-200">Relief Allocation Engine</h3>
+        <span class="text-[10px] text-slate-500">Weighted Risk Model</span>
       </div>
 
-      <p class="text-[11px] text-slate-400 leading-relaxed">
-        Select target regions below to calculate prediction-weighted budget splits using predicted index drop severity.
+      <p class="text-xs text-slate-400 leading-normal">
+        Select target zones to dynamically distribute available relief funds based on forecast severity.
       </p>
 
-      <div id="multiSelectContainer" class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs"></div>
+      <div id="multiSelectContainer" class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs"></div>
 
-      <div class="space-y-2">
-        <label class="block text-[10px] text-slate-400 font-mono uppercase">Total Relief Budget (₹)</label>
-        <input type="number" id="totalBudget" value="5000000" step="100000" oninput="evaluatePriority()" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-cyan-300 font-mono font-bold text-sm px-3 py-1.5 focus:outline-none focus:border-cyan-400">
+      <div class="space-y-1">
+        <label class="block text-[11px] font-medium text-slate-400">Total Available Relief Fund (₹)</label>
+        <input type="number" id="totalBudget" value="5000000" step="100000" oninput="evaluatePriority()" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-slate-100 font-mono font-medium text-xs px-3 py-2 focus:outline-none focus:border-indigo-500">
       </div>
 
-      <button onclick="exportPDFReport()" class="w-full bg-gradient-to-r from-cyan-500 to-teal-600 hover:opacity-90 text-slate-950 font-bold text-xs py-2 rounded-lg transition flex items-center justify-center gap-2 shadow-lg">
+      <button onclick="exportPDFReport()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        Export 1-Click PDF Report
+        Download Allocation Summary (PDF)
       </button>
 
-      <!-- Allocation Output List -->
-      <div id="priorityListContainer" class="space-y-2 pt-1"></div>
-      <div id="priorityVerdict" class="text-xs bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-lg text-amber-200 hidden"></div>
+      <!-- Results Container -->
+      <div id="priorityListContainer" class="space-y-1.5 pt-1"></div>
+      <div id="priorityVerdict" class="text-xs bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-slate-300 hidden leading-relaxed"></div>
     </div>
   </aside>
 
-  <!-- PDF Export Container (Hidden) -->
+  <!-- Hidden PDF Generation HTML -->
   <div id="pdfExportContainer" class="pdf-template">
-    <h1 style="color:#0f172a; font-size:20px; border-bottom:2px solid #06b6d4; padding-bottom:6px;">TerraWatch — AI Prediction Relief Allocation Report</h1>
-    <p style="font-size: 11px; color: #555; margin-top:5px;">Generated on: <span id="pdfDate"></span></p>
-    <div style="margin-top: 12px; font-size: 13px;">
-      <strong>Total Allocated Relief Budget:</strong> ₹<span id="pdfTotalBudget"></span>
+    <h1 style="color:#0f172a; font-size:18px; font-weight:700; margin-bottom:4px;">TerraWatch — Regional Relief Allocation Report</h1>
+    <p style="font-size: 11px; color: #64748b; margin-top:0;">Generated on: <span id="pdfDate"></span></p>
+    <div style="margin-top: 16px; font-size: 12px; color: #334155;">
+      <strong>Total Relief Pool Budget:</strong> ₹<span id="pdfTotalBudget"></span>
     </div>
     
     <table id="pdfTable">
       <thead>
         <tr>
           <th>Rank</th>
-          <th>Region Name</th>
-          <th>AI Pred. Value</th>
-          <th>Forecast Drop</th>
-          <th>Vuln. Score</th>
-          <th>Budget Allocation</th>
+          <th>Region</th>
+          <th>Predicted Val</th>
+          <th>Index Drop</th>
+          <th>Vuln Score</th>
+          <th>Allocated Fund</th>
           <th>Share (%)</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
 
-    <div style="margin-top:15px; padding:10px; background:#f8fafc; border-left:3px solid #f59e0b; font-size:11px;" id="pdfVerdictText"></div>
+    <div style="margin-top:20px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:11px; color:#334155;" id="pdfVerdictText"></div>
   </div>
 
   <script>
@@ -211,7 +217,7 @@
       map.removeLayer(activeTileLayer);
       isSatellite = !isSatellite;
       activeTileLayer = L.tileLayer(isSatellite ? satelliteBasemap : darkBasemap, { maxZoom: 19 }).addTo(map);
-      document.getElementById('basemapLabel').textContent = isSatellite ? "Dark Map" : "Satellite Map";
+      document.getElementById('basemapLabel').textContent = isSatellite ? "Default Map" : "Satellite";
     }
 
     function fitBounds(){
@@ -222,7 +228,7 @@
     }
 
     function riskColor(tier){
-      return { High: '#f87171', Medium: '#fbbf24', Low: '#34d399', Recovering: '#22d3ee' }[tier] || '#94a3b8';
+      return { High: '#f43f5e', Medium: '#f59e0b', Low: '#10b981', Recovering: '#06b6d4' }[tier] || '#94a3b8';
     }
 
     async function loadRegions(){
@@ -230,13 +236,13 @@
         const res = await fetch(`${API_BASE}/api/regions`);
         const data = await res.json();
         regionsCache = data.regions;
-        document.getElementById('healthBadge').className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
-        document.getElementById('apiStatusText').textContent = "Backend API: Online";
-        document.getElementById('apiStatusText').className = "font-mono text-[11px] text-emerald-400";
+        document.getElementById('healthBadge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+        document.getElementById('apiStatusText').textContent = "Live Backend Connected";
+        document.getElementById('apiStatusText').className = "font-medium text-slate-300";
       }catch(e){
-        document.getElementById('healthBadge').className = "relative inline-flex rounded-full h-3 w-3 bg-amber-500";
-        document.getElementById('apiStatusText').textContent = "API Offline — Loading Demo Telemetry";
-        document.getElementById('apiStatusText').className = "font-mono text-[11px] text-amber-400";
+        document.getElementById('healthBadge').className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+        document.getElementById('apiStatusText').textContent = "Offline Mode (Demo Data)";
+        document.getElementById('apiStatusText').className = "font-medium text-amber-400";
         regionsCache = getDemoData();
       }
       
@@ -259,11 +265,11 @@
 
       regionsCache.forEach(r => {
         const marker = L.circleMarker([r.lat, r.lon], {
-          radius: 8, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
-          fillOpacity: 0.8, weight: 2
+          radius: 7, color: riskColor(r.risk_tier), fillColor: riskColor(r.risk_tier),
+          fillOpacity: 0.8, weight: 1.5
         }).addTo(map);
 
-        marker.bindTooltip(`<b>${r.name}</b><br>Tier: ${r.risk_tier}`, { className: 'dark-tooltip' });
+        marker.bindTooltip(`<b>${r.name}</b><br>Status: ${r.risk_tier}`, { className: 'custom-tooltip' });
         marker.on('click', () => selectRegion(r.id));
         markers[r.id] = marker;
       });
@@ -292,12 +298,12 @@
 
       const list = document.getElementById('regionList');
       list.innerHTML = filtered.map(r => `
-        <div onclick="selectRegion('${r.id}')" class="p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer transition flex items-center justify-between border border-transparent hover:border-slate-700/60">
+        <div onclick="selectRegion('${r.id}')" class="p-2 rounded-lg hover:bg-slate-800/50 cursor-pointer transition flex items-center justify-between">
           <div>
-            <div class="text-xs font-semibold text-slate-200">${r.name}</div>
+            <div class="text-xs font-medium text-slate-200">${r.name}</div>
             <div class="text-[10px] font-mono text-slate-400">${r.index.toUpperCase()} · ${r.current_value}</div>
           </div>
-          <span class="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase" style="background:${riskColor(r.risk_tier)}20; color:${riskColor(r.risk_tier)}; border:1px solid ${riskColor(r.risk_tier)}50">${r.risk_tier}</span>
+          <span class="text-[10px] font-medium px-2 py-0.5 rounded" style="background:${riskColor(r.risk_tier)}15; color:${riskColor(r.risk_tier)}; border: 1px solid ${riskColor(r.risk_tier)}30">${r.risk_tier}</span>
         </div>
       `).join('');
     }
@@ -314,24 +320,24 @@
     }
 
     function renderDetail(r){
-      const p = r.prediction || { current_value: r.current_value, predicted_value: (r.current_value * 0.9).toFixed(2), pct_change: -10, months_ahead: 3, risk_tier: r.risk_tier, message: 'Forecasted index decline.' };
+      const p = r.prediction || { current_value: r.current_value, predicted_value: (r.current_value * 0.9).toFixed(2), pct_change: -10, months_ahead: 3, risk_tier: r.risk_tier, message: 'Forecast indicates probable environmental stress.' };
       
       document.getElementById('detailContainer').innerHTML = `
         <div class="flex justify-between items-start">
           <div>
-            <h2 class="text-sm font-bold text-slate-100">${r.name}</h2>
-            <p class="text-[10px] font-mono text-slate-400">${r.lat.toFixed(2)}°, ${r.lon.toFixed(2)}° · ${r.index.toUpperCase()}</p>
+            <h2 class="text-xs font-semibold text-slate-100">${r.name}</h2>
+            <p class="text-[10px] font-mono text-slate-400">${r.lat.toFixed(2)}°, ${r.lon.toFixed(2)}° · Index: ${r.index.toUpperCase()}</p>
           </div>
-          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full" style="background:${riskColor(p.risk_tier)}20; color:${riskColor(p.risk_tier)};">${p.risk_tier}</span>
+          <span class="text-[10px] font-medium px-2 py-0.5 rounded" style="background:${riskColor(p.risk_tier)}20; color:${riskColor(p.risk_tier)};">${p.risk_tier} Risk</span>
         </div>
 
-        <div class="grid grid-cols-3 gap-1.5 my-3 text-center">
-          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">Current</div><div class="text-xs font-mono font-bold text-slate-200">${p.current_value}</div></div>
-          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">+${p.months_ahead}m Forecast</div><div class="text-xs font-mono font-bold text-cyan-400">${p.predicted_value}</div></div>
-          <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800"><div class="text-[9px] font-mono text-slate-500 uppercase">Change</div><div class="text-xs font-mono font-bold ${p.pct_change < 0 ? 'text-red-400':'text-emerald-400'}">${p.pct_change}%</div></div>
+        <div class="grid grid-cols-3 gap-2 my-3 text-center">
+          <div class="bg-slate-900 p-2 rounded-lg border border-slate-800"><span class="text-[10px] text-slate-400 block">Current</span><span class="text-xs font-mono font-medium text-slate-200">${p.current_value}</span></div>
+          <div class="bg-slate-900 p-2 rounded-lg border border-slate-800"><span class="text-[10px] text-slate-400 block">+${p.months_ahead}m Forecast</span><span class="text-xs font-mono font-medium text-indigo-400">${p.predicted_value}</span></div>
+          <div class="bg-slate-900 p-2 rounded-lg border border-slate-800"><span class="text-[10px] text-slate-400 block">Proj. Change</span><span class="text-xs font-mono font-medium ${p.pct_change < 0 ? 'text-rose-400':'text-emerald-400'}">${p.pct_change}%</span></div>
         </div>
 
-        <p class="text-[11px] text-slate-300 bg-slate-900/80 p-2 rounded-lg border border-slate-800">${p.message}</p>
+        <p class="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 leading-normal">${p.message}</p>
       `;
 
       drawChart(r, p);
@@ -349,16 +355,16 @@
         data: {
           labels: [...labels, `+${p.months_ahead || 3}mo`],
           datasets: [
-            { label: r.index.toUpperCase(), data: values, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.08)', fill: true, tension: 0.2, pointRadius: 0 },
-            { label: 'AI Forecast', data: new Array(values.length - 1).fill(null).concat([values[values.length-1], parseFloat(p.predicted_value)]), borderColor: '#fbbf24', borderDash: [4,4], pointRadius: 0 }
+            { label: 'Observed Index', data: values, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.05)', fill: true, tension: 0.3, pointRadius: 2, pointBackgroundColor: '#6366f1' },
+            { label: 'Forecast', data: new Array(values.length - 1).fill(null).concat([values[values.length-1], parseFloat(p.predicted_value)]), borderColor: '#f59e0b', borderDash: [4,4], pointRadius: 3, pointBackgroundColor: '#f59e0b' }
           ]
         },
         options: {
           responsive: true,
-          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10, family: 'Plus Jakarta Sans' } } } },
           scales: {
-            x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
-            y: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
+            x: { ticks: { color: '#64748b', font: { size: 9, family: 'JetBrains Mono' } }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b', font: { size: 9, family: 'JetBrains Mono' } }, grid: { color: '#1e293b' } }
           }
         }
       });
@@ -367,8 +373,8 @@
     function populateCheckboxes(){
       const container = document.getElementById('multiSelectContainer');
       container.innerHTML = regionsCache.map(r => `
-        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
-          <input type="checkbox" value="${r.id}" onchange="evaluatePriority()" class="accent-cyan-400 rounded">
+        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer hover:text-white transition-colors">
+          <input type="checkbox" value="${r.id}" onchange="evaluatePriority()" class="accent-indigo-500 rounded">
           <span class="truncate">${r.name}</span>
         </label>
       `).join('');
@@ -410,27 +416,27 @@
       listContainer.innerHTML = currentEvaluation.map((r, i) => `
         <div class="p-2 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between text-xs">
           <div>
-            <div class="font-bold text-slate-200">#${i+1} ${r.name}</div>
-            <div class="text-[10px] font-mono text-slate-400">Score: <span class="text-cyan-400">${r.score}</span> | Drop: ${r.pctChange}%</div>
+            <div class="font-medium text-slate-200">#${i+1} ${r.name}</div>
+            <div class="text-[10px] font-mono text-slate-400">Score: ${r.score} · Change: ${r.pctChange}%</div>
           </div>
           <div class="text-right">
-            <div class="font-mono font-bold text-cyan-300">₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</div>
-            <div class="text-[9px] font-mono text-slate-500">${r.sharePct.toFixed(1)}% share</div>
+            <div class="font-mono font-medium text-indigo-400">₹${Math.round(r.allocatedAmount).toLocaleString('en-IN')}</div>
+            <div class="text-[10px] font-mono text-slate-500">${r.sharePct.toFixed(1)}%</div>
           </div>
         </div>
       `).join('');
 
       verdictBox.classList.remove('hidden');
       if(currentEvaluation.length === 1){
-        verdictBox.textContent = "Select more regions to generate comparative AI relief distribution.";
+        verdictBox.textContent = "Select additional zones to compute comparative relief distributions.";
       } else {
         const top = currentEvaluation[0];
-        verdictBox.innerHTML = `<strong>Priority Rank #1:</strong> ${top.name} with AI Vuln Score <strong>${top.score}</strong> gets <strong>₹${Math.round(top.allocatedAmount).toLocaleString('en-IN')} (${top.sharePct.toFixed(1)}%)</strong>.`;
+        verdictBox.innerHTML = `<strong>Priority Rank #1:</strong> ${top.name} is prioritized with a vulnerability score of <strong>${top.score}</strong>, receiving <strong>₹${Math.round(top.allocatedAmount).toLocaleString('en-IN')} (${top.sharePct.toFixed(1)}%)</strong> of total pool.`;
       }
     }
 
     async function exportPDFReport(){
-      if(!currentEvaluation.length){ alert("Please select regions first!"); return; }
+      if(!currentEvaluation.length){ alert("Please select regions to generate a report."); return; }
 
       const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
       document.getElementById('pdfDate').textContent = new Date().toLocaleString();
@@ -455,7 +461,7 @@
 
       await new Promise(r => setTimeout(r, 150));
       await html2pdf().set({
-        margin: 0.4, filename: `TerraWatch_AIPrediction_Report_${Date.now()}.pdf`,
+        margin: 0.5, filename: `TerraWatch_Relief_Allocation_${Date.now()}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       }).from(element).save();
